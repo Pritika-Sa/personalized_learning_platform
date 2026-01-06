@@ -107,10 +107,8 @@ router.post('/register', async (req, res) => {
       validationErrors.push('Last name can only contain letters');
     }
 
-    // Skills validation
-    if (!skills || !Array.isArray(skills) || skills.length === 0) {
-      validationErrors.push('Please select at least one skill');
-    }
+    // Normalize skills input (optional)
+    const normalizedSkills = Array.isArray(skills) ? skills : [];
 
     // Return validation errors if any
     if (validationErrors.length > 0) {
@@ -141,7 +139,7 @@ router.post('/register', async (req, res) => {
       firstName,
       lastName,
       role: role || 'student',
-      skills: skills || [],
+      skills: normalizedSkills,
       interests: interests || '',
       careerObjective: careerObjective || ''
     });
@@ -294,7 +292,7 @@ router.get('/profile', auth, async (req, res) => {
   try {
     // req.user is already the full user object from auth middleware
     const userId = req.user._id || req.user.id;
-    const user = await User.findById(userId).select('-password -otpCode -otpExpiresAt');
+    const user = await User.findById(userId).select('-password');
     res.json(user);
   } catch (error) {
     console.error('Profile fetch error:', error);

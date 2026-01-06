@@ -3,21 +3,53 @@ const router = express.Router();
 const User = require('../models/User');
 const Course = require('../models/Course');
 const ChatSession = require('../models/Chat');
-const auth = require('../middleware/auth');
+const { auth } = require('../middleware/auth');
+const LearningCopilotService = require('../services/LearningCopilotService');
+
+const copilot = new LearningCopilotService();
 
 // Process chat message
 router.post('/chat', auth, async (req, res) => {
   try {
-    const { message, sessionId, type = 'text' } = req.body;
+    const { message, sessionId, type = 'text', courseId, copilotMode = false } = req.body;
     const userId = req.user.id;
 
     if (!message || !sessionId) {
       return res.status(400).json({ error: 'Message and session ID are required' });
     }
 
+    // If copilot mode is enabled and courseId is provided, use Learning Copilot
+    if (copilotMode && courseId) {
+      try {
+        const copilotResponse = await copilot.answerQuestion(userId, courseId, message);
+
+        return res.json({
+          success: true,
+          message: {
+            id: Date.now().toString(),
+            text: copilotResponse.response,
+            sender: 'copilot',
+            timestamp: new Date(),
+            type: 'copilot-response',
+            data: {
+              source: copilotResponse.source,
+              courseContext: copilotResponse.courseContext,
+              learningContext: copilotResponse.learningContext
+            }
+          },
+          sessionId: sessionId,
+          mode: 'learning-copilot'
+        });
+      } catch (error) {
+        console.warn('Copilot error, falling back to standard chat:', error.message);
+        // Fall through to standard chat if copilot fails
+      }
+    }
+
+    // Standard chat flow (unchanged for backward compatibility)
     // Find or create chat session
     let chatSession = await ChatSession.findOne({ userId, sessionId, isActive: true });
-    
+
     if (!chatSession) {
       chatSession = new ChatSession({
         userId,
@@ -58,7 +90,8 @@ router.post('/chat', auth, async (req, res) => {
     res.json({
       success: true,
       message: botMessage,
-      sessionId: chatSession.sessionId
+      sessionId: chatSession.sessionId,
+      mode: 'standard-chat'
     });
 
   } catch (error) {
@@ -73,10 +106,10 @@ router.get('/chat/history/:sessionId', auth, async (req, res) => {
     const { sessionId } = req.params;
     const userId = req.user.id;
 
-    const chatSession = await ChatSession.findOne({ 
-      userId, 
-      sessionId, 
-      isActive: true 
+    const chatSession = await ChatSession.findOne({
+      userId,
+      sessionId,
+      isActive: true
     });
 
     if (!chatSession) {
@@ -113,7 +146,7 @@ router.post('/chat/recommendations', auth, async (req, res) => {
     const completedCourses = user.completedCourses || [];
 
     // Find matching courses
-    const courses = await Course.find({ 
+    const courses = await Course.find({
       isPublished: true,
       _id: { $nin: completedCourses }
     }).limit(10);
@@ -121,11 +154,11 @@ router.post('/chat/recommendations', auth, async (req, res) => {
     // Score and rank courses based on user profile
     const scoredCourses = courses.map(course => {
       let score = 0;
-      
+
       // Skill matching
       const courseSkills = course.tags || course.skills || [];
-      const skillMatches = courseSkills.filter(skill => 
-        userSkills.some(userSkill => 
+      const skillMatches = courseSkills.filter(skill =>
+        userSkills.some(userSkill =>
           userSkill.toLowerCase().includes(skill.toLowerCase()) ||
           skill.toLowerCase().includes(userSkill.toLowerCase())
         )
@@ -133,8 +166,8 @@ router.post('/chat/recommendations', auth, async (req, res) => {
       score += skillMatches.length * 3;
 
       // Interest matching
-      const interestMatches = courseSkills.filter(skill => 
-        userInterests.some(interest => 
+      const interestMatches = courseSkills.filter(skill =>
+        userInterests.some(interest =>
           interest.toLowerCase().includes(skill.toLowerCase()) ||
           skill.toLowerCase().includes(interest.toLowerCase())
         )
@@ -221,7 +254,7 @@ router.post('/chat/study-schedule', auth, async (req, res) => {
 router.get('/chat/progress', auth, async (req, res) => {
   try {
     const userId = req.user.id;
-    
+
     const user = await User.findById(userId).populate('enrolledCourses completedCourses');
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -302,14 +335,14 @@ async function processUserMessage(message, userId, type) {
       }
 
       const courses = await Course.find({ isPublished: true }).limit(10);
-      
+
       if (courses.length === 0) {
         return { text: "I'd love to recommend courses, but none are available right now. Please check back later!" };
       }
 
       // Use Gemini AI for intelligent course recommendations
       const geminiResponse = await geminiService.getCourseRecommendations(userContext, courses, message);
-      
+
       if (geminiResponse.success) {
         return {
           text: geminiResponse.recommendations,
@@ -324,7 +357,7 @@ async function processUserMessage(message, userId, type) {
 
     // For general chat messages, use Gemini AI for intelligent responses
     const geminiResponse = await geminiService.generateChatResponse(message, userContext);
-    
+
     if (geminiResponse.success) {
       return {
         text: geminiResponse.response,
@@ -371,7 +404,7 @@ async function getFallbackResponse(message, userId) {
     if (lowerMessage.includes('hello') || lowerMessage.includes('hi') || lowerMessage.includes('hey')) {
       const user = await User.findById(userId);
       const userName = user ? (user.firstName || user.username) : 'there';
-      
+
       return {
         text: `Hello ${userName}! 👋 I'm your AI learning assistant. I can help you discover courses, create study plans, and track your progress. What would you like to explore today?`
       };
@@ -391,15 +424,15 @@ async function getFallbackResponse(message, userId) {
 
   } catch (error) {
     console.error('Fallback response error:', error);
-    return { 
-      text: "I'm here to help with your learning journey! Try asking about courses, study plans, or your progress." 
+    return {
+      text: "I'm here to help with your learning journey! Try asking about courses, study plans, or your progress."
     };
   }
 }
 
 // Fallback course recommendations
 function getFallbackCourseRecommendations(courses, userContext) {
-  const recommendationText = `Based on your profile, here are my top recommendations:\n\n${courses.slice(0, 3).map((course, index) => 
+  const recommendationText = `Based on your profile, here are my top recommendations:\n\n${courses.slice(0, 3).map((course, index) =>
     `${index + 1}. **${course.title}**\n   • Level: ${course.level}\n   • Duration: ${course.duration || 'N/A'}\n   • Price: ${course.price === 0 ? 'Free' : `₹${course.price}`}\n   • Students: ${course.students || 0}\n`
   ).join('\n')}`;
 
@@ -416,7 +449,7 @@ function generateStudySchedule({ courses, availableHours, userPreferences, userL
   const schedule = [];
 
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-  
+
   days.forEach((day, index) => {
     const isWeekend = index >= 5;
     const dayHours = isWeekend ? dailyHours * 1.5 : dailyHours * 0.8;
@@ -447,23 +480,23 @@ function generateStudySchedule({ courses, availableHours, userPreferences, userL
 // Helper function to generate next goals
 function generateNextGoals(user) {
   const goals = [];
-  
+
   if (!user.completedCourses || user.completedCourses.length === 0) {
     goals.push("Complete your first course");
   }
-  
+
   if (!user.certificates || user.certificates.length === 0) {
     goals.push("Earn your first certificate");
   }
-  
+
   if (!user.totalStudyTime || user.totalStudyTime < 10) {
     goals.push("Reach 10 hours of total study time");
   }
-  
+
   if (goals.length === 0) {
     goals.push("Enroll in a new advanced course", "Join a peer learning session", "Complete a project-based assessment");
   }
-  
+
   return goals.slice(0, 3);
 }
 

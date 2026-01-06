@@ -92,6 +92,12 @@ const Navigation: React.FC = () => {
                 Recommendations
               </Link>
               <Link
+                to="/copilot"
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${location.pathname === '/copilot' ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'text-gray-700 dark:text-gray-200 hover:text-blue-600 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+              >
+                Copilot
+              </Link>
+              <Link
                 to="/achievements"
                 className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${location.pathname === '/achievements' ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'text-gray-700 dark:text-gray-200 hover:text-blue-600 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
               >
@@ -409,6 +415,13 @@ const Navigation: React.FC = () => {
               className={`block px-3 py-2 rounded-md text-base font-medium ${location.pathname === '/recommendations' ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'text-gray-700 dark:text-gray-200 hover:text-blue-600 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
             >
               Recommendations
+            </Link>
+            <Link
+              to="/copilot"
+              onClick={() => setIsMenuOpen(false)}
+              className={`block px-3 py-2 rounded-md text-base font-medium ${location.pathname === '/copilot' ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'text-gray-700 dark:text-gray-200 hover:text-blue-600 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+            >
+              🤖 Copilot
             </Link>
             <Link
               to="/achievements"

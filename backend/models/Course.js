@@ -101,6 +101,20 @@ const courseSchema = new mongoose.Schema({
     }
   },
   tags: [String],
+  materials: [{
+    title: String,
+    content: String, // Extracted text content
+    type: { type: String, enum: ['pdf', 'note', 'ppt'], default: 'pdf' },
+    url: String, // Original file URL
+    fileId: String,
+    isProcessed: { type: Boolean, default: false },
+    chunks: [{
+      text: String,
+      pageNumber: Number,
+      section: String,
+      embedding: [Number]
+    }]
+  }],
   isPublished: {
     type: Boolean,
     default: false
@@ -143,7 +157,7 @@ courseSchema.index({ instructor: 1 });
 courseSchema.index({ isPublished: 1 });
 
 // Static method to get course with reviews
-courseSchema.statics.getCourseWithReviews = async function(courseId, page = 1, limit = 10) {
+courseSchema.statics.getCourseWithReviews = async function (courseId, page = 1, limit = 10) {
   const course = await this.findById(courseId)
     .populate('instructor', 'username firstName lastName profilePicture')
     .populate({
@@ -163,7 +177,7 @@ courseSchema.statics.getCourseWithReviews = async function(courseId, page = 1, l
 };
 
 // Static method to get popular courses based on reviews
-courseSchema.statics.getPopularCourses = async function(limit = 10) {
+courseSchema.statics.getPopularCourses = async function (limit = 10) {
   return await this.aggregate([
     { $match: { isPublished: true } },
     {

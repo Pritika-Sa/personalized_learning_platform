@@ -980,7 +980,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onCourseSelect, onViewCertificate
                           </div>
                           <div className="text-right">
                             <div className="text-sm font-semibold text-dark-gunmetal dark:text-white">
-                              {paymentService.formatCurrency(course.price)}
+                              {course.price}
                             </div>
                             <div className="text-xs text-green-600">Paid</div>
                           </div>

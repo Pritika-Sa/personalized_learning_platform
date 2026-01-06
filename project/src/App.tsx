@@ -24,6 +24,7 @@ import CareerHub from './components/CareerHub';
 import InteractiveAssessments from './components/InteractiveAssessments';
 import AuthenticationFlow from './components/AuthenticationFlow';
 import ChatBot from './components/ChatBot';
+import CopilotPage from './components/CopilotPage';
 
 // Course wrapper component to handle slug-to-course resolution
 function CourseWrapper({ children }: { children: (course: any) => React.ReactNode }) {
@@ -175,6 +176,7 @@ function AppContent() {
           <Route path="/profile" element={<Profile />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/achievements" element={<AchievementsPage />} />
+          <Route path="/copilot" element={<CopilotPage />} />
           <Route path="/checkout/:courseId" element={<CheckoutPage />} />
           <Route path="/peer-learning" element={<PeerLearning />} />
           <Route path="/career-hub" element={<CareerHub />} />

@@ -2,12 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useCourses } from '../contexts/CourseContext';
-import { ArrowLeft, Clock, Users, Star, Award, Play, CheckCircle, Lock, CreditCard, DollarSign } from 'lucide-react';
+import { ArrowLeft, Clock, Users, Star, Award, Play, CheckCircle, Lock, CreditCard, DollarSign, X, ChevronRight } from 'lucide-react';
 import ReviewSection from './ReviewSection';
 import PaymentModal from './PaymentModal';
+import LearningDashboard from './LearningDashboard';
+import CopilotChat from './CopilotChat';
+import AdaptiveQuizRenderer from './AdaptiveQuizRenderer';
 
-
-import paymentService from '../services/paymentService';
+// paymentService removed — payments deprecated. Course access checked via course status API.
 
 interface CourseDetailProps {
   course: any;
@@ -34,12 +36,16 @@ const CourseDetail: React.FC<CourseDetailProps> = ({
   const [reviewRefreshKey, setReviewRefreshKey] = useState(0);
   const [showMessage, setShowMessage] = useState<string | null>(null);
   const [justCompletedAssessment, setJustCompletedAssessment] = useState(false);
-  
+
   // Payment related state
   const [paymentStatus, setPaymentStatus] = useState<any>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentLoading, setPaymentLoading] = useState(true);
+  const [activeQuizTopic, setActiveQuizTopic] = useState<string | null>(null);
   const [hasAccess, setHasAccess] = useState(false);
+
+  // Learning Copilot state
+  const [learningPlanInitialized, setLearningPlanInitialized] = useState(false);
 
   // Calculate progress and completion status
   useEffect(() => {
@@ -49,7 +55,7 @@ const CourseDetail: React.FC<CourseDetailProps> = ({
     const urlParams = new URLSearchParams(location.search);
     const message = urlParams.get('message');
     const paymentSuccess = urlParams.get('payment');
-    
+
     if (message === 'already-enrolled') {
       setShowMessage('already-enrolled');
       // Clear the URL parameter
@@ -70,11 +76,11 @@ const CourseDetail: React.FC<CourseDetailProps> = ({
 
     const courseId = (course as any)._id || course.id;
     const userId = (user as any).id || (user as any)._id;
-    
+
     // Get progress from context
     const currentProgress = getCourseProgress(courseId, userId);
     setProgress(currentProgress);
-    
+
     // Course should only be considered "completed" if all videos are watched (100% progress)
     // AND the user has passed the assessment
     const isAllVideosWatched = currentProgress === 100;
@@ -83,83 +89,60 @@ const CourseDetail: React.FC<CourseDetailProps> = ({
     const checkCourseAccess = async () => {
       try {
         setPaymentLoading(true);
-        
-        // First check payment status
-        const status = await paymentService.getPaymentStatus(courseId);
+
+        const token = localStorage.getItem('authToken');
+        // Query backend for course status (enrollment / access)
+        const statusResp = await fetch(`http://localhost:5001/api/courses/${courseId}/status`, {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+
+        let status: any = { isFree: (course.price || 0) === 0, isEnrolled: false, canAccess: false };
+        if (statusResp.ok) {
+          status = await statusResp.json();
+        }
+
         setPaymentStatus(status);
-        
+
         // Auto-enroll user in free courses if not already enrolled
         if (status.isFree && !status.isEnrolled) {
-          console.log('Auto-enrolling user in free course...');
           try {
             const enrollResponse = await fetch(`http://localhost:5001/api/courses/${courseId}/enroll`, {
               method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-                'Content-Type': 'application/json'
-              }
+              headers: token ? { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' }
             });
-            
+
             if (enrollResponse.ok) {
-              console.log('Successfully auto-enrolled in free course');
-              // Update the status to reflect enrollment
               status.isEnrolled = true;
               status.canAccess = true;
-            } else {
-              console.error('Failed to auto-enroll in free course');
             }
           } catch (enrollError) {
             console.error('Error auto-enrolling in free course:', enrollError);
           }
         }
 
-        // Determine if user has access
         const hasAccess = status.canAccess || (status.isFree && status.isEnrolled);
         setHasAccess(hasAccess);
 
-        // Only check completion status if user has access
         if (hasAccess) {
-          const token = localStorage.getItem('authToken');
+          // Re-check completion status from backend
           if (token) {
             const response = await fetch(`http://localhost:5001/api/courses/${courseId}/status`, {
-              headers: {
-                'Authorization': `Bearer ${token}`
-              }
+              headers: { 'Authorization': `Bearer ${token}` }
             });
-            
+
             if (response.ok) {
               const courseStatus = await response.json();
-              // FIXED: A course is only truly completed if the backend confirms completion
-              // Backend completion only happens when assessment is passed
-              // We also verify all videos are watched (100% progress)
               const backendCompleted = courseStatus.completed;
-              
-              // Both conditions must be met: backend says completed AND all videos are watched
               const isFullyCompleted = backendCompleted && isAllVideosWatched;
               setIsCompleted(isFullyCompleted);
-              
-              console.log('Course status:', { 
-                backendCompleted,
-                isAllVideosWatched,
-                finalCompletionStatus: isFullyCompleted
-              });
             }
           }
         }
       } catch (error) {
         console.error('Error checking course access:', error);
-        // SECURITY: On error, default to NO access for paid courses
-        // Only allow access if it's clearly a free course (price = 0)
         const isFreeFromPricing = (course.price || 0) === 0;
         setHasAccess(isFreeFromPricing);
-        setPaymentStatus({ 
-          isFree: isFreeFromPricing, 
-          canAccess: isFreeFromPricing,
-          error: true 
-        });
-        
-        // Don't automatically mark as completed for fallback
-        // Course completion requires both video progress AND assessment completion
+        setPaymentStatus({ isFree: isFreeFromPricing, canAccess: isFreeFromPricing, error: true });
         setIsCompleted(false);
       } finally {
         setPaymentLoading(false);
@@ -182,13 +165,13 @@ const CourseDetail: React.FC<CourseDetailProps> = ({
     const forceRefresh = sessionStorage.getItem('forceRefreshCourse');
     if (forceRefresh) {
       sessionStorage.removeItem('forceRefreshCourse');
-      
+
       // Immediately check course completion status again
       const recheckCompletion = async () => {
         if (user && course) {
           const courseId = (course as any)._id || course.id;
           const token = localStorage.getItem('authToken');
-          
+
           if (token) {
             try {
               const response = await fetch(`http://localhost:5001/api/courses/${courseId}/status`, {
@@ -196,11 +179,11 @@ const CourseDetail: React.FC<CourseDetailProps> = ({
                   'Authorization': `Bearer ${token}`
                 }
               });
-              
+
               if (response.ok) {
                 const courseStatus = await response.json();
                 setIsCompleted(courseStatus.completed);
-                
+
                 // Also update progress to 100% if completed
                 if (courseStatus.completed) {
                   setProgress(100);
@@ -212,7 +195,7 @@ const CourseDetail: React.FC<CourseDetailProps> = ({
           }
         }
       };
-      
+
       recheckCompletion();
     }
   }, [course, user]);
@@ -225,7 +208,7 @@ const CourseDetail: React.FC<CourseDetailProps> = ({
 
   const lastLessonId = getLastLessonId((course as any)._id || course.id, resolvedUserId);
   const lessons = course.lessons || course.videos || [];
-  
+
   // Debug lesson progress
   console.log('CourseDetail Lesson Progress Debug:', {
     userId: resolvedUserId,
@@ -236,24 +219,24 @@ const CourseDetail: React.FC<CourseDetailProps> = ({
     allLocalStorageKeys: Object.keys(localStorage).filter(key => key.includes('progress_')),
     lessons: lessons.map((l: any) => ({ id: l._id || l.id, title: l.title }))
   });
-  
+
   const lastLesson = lastLessonId ? lessons.find((l: any) => (l as any)._id === lastLessonId || l.id === lastLessonId) : null;
 
   // Check if course has assessments
   const hasAssessments = course.assessments && course.assessments.length > 0;
   const totalLessons = lessons.length;
-  
+
   // Get a list of valid lesson IDs to compare against
   const validLessonIds = lessons.map((l: any) => l._id || l.id);
-  
+
   // Only count completed lessons that actually exist in the course
   const completedLessons = Object.keys(lessonProgress)
     .filter(id => validLessonIds.includes(id))
     .length;
-    
+
   // Determine if all videos are completed based on exact lesson count
   const allVideosCompleted = completedLessons >= totalLessons;
-  
+
   // Use both progress calculation and lesson count to determine if assessment should be shown
   // This makes the check more robust
   const shouldShowAssessment = progress >= 100 || allVideosCompleted;
@@ -261,20 +244,28 @@ const CourseDetail: React.FC<CourseDetailProps> = ({
   // Check if user has attempted but not passed the assessment
   const [hasAttemptedAssessment, setHasAttemptedAssessment] = useState(false);
 
-  // Payment success handler
-  const handlePaymentSuccess = () => {
-    // Refresh payment status after successful payment
+  // Enrollment status refresh handler (payments deprecated)
+  const handlePaymentSuccess = async () => {
     const courseId = (course as any)._id || course.id;
-    paymentService.getPaymentStatus(courseId).then(status => {
-      setPaymentStatus(status);
-      setHasAccess(status.canAccess);
-    });
+    const token = localStorage.getItem('authToken');
+    try {
+      const resp = await fetch(`http://localhost:5001/api/courses/${courseId}/status`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
+      if (resp.ok) {
+        const status = await resp.json();
+        setPaymentStatus(status);
+        setHasAccess(status.canAccess || status.isEnrolled || status.isFree);
+      }
+    } catch (err) {
+      console.error('Error refreshing course status:', err);
+    }
   };
 
   useEffect(() => {
     const checkAssessmentAttempts = async () => {
       if (!course || !user) return;
-      
+
       try {
         const token = localStorage.getItem('authToken');
         if (token) {
@@ -284,7 +275,7 @@ const CourseDetail: React.FC<CourseDetailProps> = ({
               'Authorization': `Bearer ${token}`
             }
           });
-          
+
           if (response.ok) {
             const results = await response.json();
             const userId = (user as any)._id || (user as any).id;
@@ -302,9 +293,47 @@ const CourseDetail: React.FC<CourseDetailProps> = ({
         console.error('Error checking assessment attempts:', error);
       }
     };
-    
+
     checkAssessmentAttempts();
   }, [course, user]);
+
+  // Initialize learning plan when user accesses the course
+  useEffect(() => {
+    if (!hasAccess || !course || !user || learningPlanInitialized) return;
+
+    const initializeLearningPlan = async () => {
+      try {
+        const token = localStorage.getItem('authToken');
+        const courseId = (course as any)._id || course.id;
+
+        if (token) {
+          const response = await fetch('http://localhost:5001/api/copilot/generate-plan-with-copilot', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              courseId,
+              weeklyHoursAvailable: 10,
+              preferredPace: 'moderate'
+            })
+          });
+
+          if (response.ok) {
+            console.log('Learning plan initialized successfully');
+            setLearningPlanInitialized(true);
+          }
+        }
+      } catch (error) {
+        console.error('Error initializing learning plan:', error);
+        // Don't prevent the course from loading if plan initialization fails
+        setLearningPlanInitialized(true);
+      }
+    };
+
+    initializeLearningPlan();
+  }, [hasAccess, course, user, learningPlanInitialized]);
 
   // Comprehensive debug information
   console.log('CourseDetail Debug:', {
@@ -320,9 +349,9 @@ const CourseDetail: React.FC<CourseDetailProps> = ({
     hasAccess,
     assessmentButtonVisible: hasAccess && (completedLessons >= totalLessons || progress >= 100),
     validLessonIds: lessons.map((l: any) => l._id || l.id),
-    lessons: lessons.map((l: any) => ({ 
-      id: l._id || l.id, 
-      title: l.title, 
+    lessons: lessons.map((l: any) => ({
+      id: l._id || l.id,
+      title: l.title,
       completed: !!lessonProgress[l._id || l.id],
       inProgressMap: !!lessonProgress[l._id || l.id]
     })),
@@ -375,7 +404,7 @@ const CourseDetail: React.FC<CourseDetailProps> = ({
               </div>
             </div>
           )}
-          
+
           {showMessage === 'already-enrolled' && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <div className="flex items-center">
@@ -387,7 +416,7 @@ const CourseDetail: React.FC<CourseDetailProps> = ({
               </div>
             </div>
           )}
-          
+
           {showMessage === 'free-course' && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <div className="flex items-center">
@@ -411,21 +440,20 @@ const CourseDetail: React.FC<CourseDetailProps> = ({
               alt={course.title || 'Course'}
               className="w-full h-80 object-cover"
             />
-            
+
             <div className="p-8">
               <div className="flex items-center justify-between mb-6">
-                <span className={`px-4 py-2 rounded-full text-sm font-bold backdrop-blur-sm border-2 ${
-                  course.level === 'Beginner' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
+                <span className={`px-4 py-2 rounded-full text-sm font-bold backdrop-blur-sm border-2 ${course.level === 'Beginner' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
                   course.level === 'Intermediate' ? 'bg-amber-100 text-amber-700 border-amber-200' :
-                  'bg-rose-100 text-rose-700 border-rose-200'
-                }`}>
+                    'bg-rose-100 text-rose-700 border-rose-200'
+                  }`}>
                   {course.level || 'Beginner'}
                 </span>
                 <div className="flex items-center space-x-4">
                   {(course.price || 0) > 0 && (
                     <div className="text-right">
-                      <div className="text-3xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">
-                        {paymentService.formatCurrency(course.price || 0)}
+                      <div className="text-3xl font-bold text-gray-800">
+                        {course.price}
                       </div>
                       {paymentStatus?.hasPaid && (
                         <div className="text-sm text-emerald-600 font-semibold">Purchased</div>
@@ -488,11 +516,11 @@ const CourseDetail: React.FC<CourseDetailProps> = ({
                     <div>
                       <div className="text-sm text-gray-600">Rating</div>
                       <div className="font-bold text-gray-800">
-                        {typeof course.rating === 'object' && course.rating?.count > 0 
+                        {typeof course.rating === 'object' && course.rating?.count > 0
                           ? `${course.rating.average.toFixed(1)}/5 (${course.rating.count} reviews)`
                           : typeof course.rating === 'number' && course.rating > 0
-                          ? `${course.rating.toFixed(1)}/5`
-                          : '4.2/5 (5 reviews)'
+                            ? `${course.rating.toFixed(1)}/5`
+                            : '4.2/5 (5 reviews)'
                         }
                       </div>
                     </div>
@@ -540,15 +568,13 @@ const CourseDetail: React.FC<CourseDetailProps> = ({
                 )}
                 {isCompleted && (
                   <div className="mt-4">
-                    <div className={`flex items-center justify-between p-4 rounded-lg transition-all duration-500 ${
-                      justCompletedAssessment 
-                        ? 'bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-200 shadow-lg' 
-                        : 'bg-green-50 border border-green-200'
-                    }`}>
+                    <div className={`flex items-center justify-between p-4 rounded-lg transition-all duration-500 ${justCompletedAssessment
+                      ? 'bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-200 shadow-lg'
+                      : 'bg-green-50 border border-green-200'
+                      }`}>
                       <div className="flex items-center space-x-3">
-                        <div className={`p-2 rounded-full ${
-                          justCompletedAssessment ? 'bg-green-500 animate-pulse' : 'bg-green-500'
-                        }`}>
+                        <div className={`p-2 rounded-full ${justCompletedAssessment ? 'bg-green-500 animate-pulse' : 'bg-green-500'
+                          }`}>
                           <CheckCircle className="w-5 h-5 text-white" />
                         </div>
                         <div>
@@ -588,13 +614,12 @@ const CourseDetail: React.FC<CourseDetailProps> = ({
                   {(course.skills || ['java', 'oop', 'programming', 'backend', 'development']).map((skill: string, index: number) => (
                     <span
                       key={skill}
-                      className={`px-4 py-2 text-sm font-semibold rounded-2xl transition-all duration-300 hover:scale-105 ${
-                        index % 5 === 0 ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white' :
+                      className={`px-4 py-2 text-sm font-semibold rounded-2xl transition-all duration-300 hover:scale-105 ${index % 5 === 0 ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white' :
                         index % 5 === 1 ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white' :
-                        index % 5 === 2 ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white' :
-                        index % 5 === 3 ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white' :
-                        'bg-gradient-to-r from-indigo-500 to-purple-500 text-white'
-                      }`}
+                          index % 5 === 2 ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white' :
+                            index % 5 === 3 ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white' :
+                              'bg-gradient-to-r from-indigo-500 to-purple-500 text-white'
+                        }`}
                     >
                       {skill}
                     </span>
@@ -609,37 +634,38 @@ const CourseDetail: React.FC<CourseDetailProps> = ({
 
         {/* Sidebar */}
         <div className="space-y-6">
-          {/* Access Control / Payment */}
-          {!paymentLoading && !hasAccess && course.price > 0 && (
+          {/* Access Control / Enrollment (payments removed) */}
+          {!paymentLoading && !hasAccess && (
             <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 p-8">
               <div className="text-center">
                 <div className="mb-6">
-                  <div className="text-4xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent mb-3">
-                    {paymentService.formatCurrency(course.price)}
-                  </div>
-                  <p className="text-gray-600 font-medium">One-time payment</p>
+                  <div className="text-2xl font-semibold text-gray-800 mb-3">Start learning instantly</div>
                 </div>
-                
+
                 <button
-                  onClick={() => navigate(`/checkout/${course._id || course.id}`)}
+                  onClick={async () => {
+                    try {
+                      const token = localStorage.getItem('authToken');
+                      await fetch(`/api/courses/${course._id || course.id}/enroll`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                      });
+                      window.location.reload();
+                    } catch (err) {
+                      console.error('Enroll error:', err);
+                      alert('Failed to enroll. Please try again.');
+                    }
+                  }}
                   className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white py-4 px-6 rounded-2xl font-bold transition-all duration-300 flex items-center justify-center space-x-2 mb-6 transform hover:scale-105 shadow-lg hover:shadow-xl"
                 >
                   <CreditCard className="w-6 h-6" />
-                  <span>Purchase Course</span>
+                  <span>Start Learning</span>
                 </button>
-                
+
                 <div className="text-sm text-gray-600 space-y-2">
                   <div className="flex items-center justify-center space-x-2">
                     <CheckCircle className="w-4 h-4 text-emerald-500" />
                     <span>Lifetime access</span>
-                  </div>
-                  <div className="flex items-center justify-center space-x-2">
-                    <CheckCircle className="w-4 h-4 text-emerald-500" />
-                    <span>Certificate of completion</span>
-                  </div>
-                  <div className="flex items-center justify-center space-x-2">
-                    <CheckCircle className="w-4 h-4 text-emerald-500" />
-                    <span>All course materials</span>
                   </div>
                 </div>
               </div>
@@ -655,7 +681,7 @@ const CourseDetail: React.FC<CourseDetailProps> = ({
                   <h3 className="text-xl font-bold text-green-800 mb-2">Already Enrolled!</h3>
                   <p className="text-green-700">You have full access to this course</p>
                 </div>
-                
+
                 <div className="text-sm text-green-600 space-y-1">
                   <p>✓ Payment completed</p>
                   <p>✓ Lifetime access activated</p>
@@ -674,12 +700,71 @@ const CourseDetail: React.FC<CourseDetailProps> = ({
                   <h3 className="text-xl font-bold text-blue-800 mb-2">Free Course</h3>
                   <p className="text-blue-700">Enjoy this course at no cost!</p>
                 </div>
-                
+
                 <div className="text-sm text-blue-600 space-y-1">
                   <p>✓ Full access included</p>
                   <p>✓ Certificate available</p>
                   <p>✓ All materials included</p>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* AI Features Card */}
+          {hasAccess && (
+            <div className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-900/10 dark:to-blue-900/10 rounded-3xl shadow-xl border border-indigo-100 dark:border-indigo-900/30 p-8 overflow-hidden relative">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-200 dark:bg-indigo-800 pointer-events-none blur-3xl opacity-20 -mr-16 -mt-16"></div>
+
+              <div className="relative z-10">
+                <div className="flex items-center space-x-3 mb-6">
+                  <div className="p-2.5 bg-indigo-600 rounded-xl">
+                    <Award className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white">AI Learning Agent</h3>
+                    <p className="text-xs text-indigo-600 dark:text-indigo-400 font-bold uppercase tracking-wider">Powered by Gemini</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <button
+                    onClick={() => {
+                      const topic = course.topics?.[0] || 'Fundamentals';
+                      setActiveQuizTopic(topic);
+                    }}
+                    className="w-full flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 hover:border-indigo-400 dark:hover:border-indigo-600 transition-all group shadow-sm hover:shadow-md"
+                  >
+                    <div className="flex items-center space-x-3 text-left">
+                      <div className="p-2 bg-pink-50 dark:bg-pink-900/20 rounded-lg text-pink-500">
+                        <CheckCircle className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-gray-800 dark:text-gray-100">Adaptive AI Quiz</p>
+                        <p className="text-[10px] text-gray-500">Test your mastery with AI</p>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-indigo-500 group-hover:translate-x-1 transition-all" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Adaptive Quiz Modal Overlay */}
+          {activeQuizTopic && (
+            <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
+              <div className="w-full max-w-2xl relative">
+                <button
+                  onClick={() => setActiveQuizTopic(null)}
+                  className="absolute -top-12 right-0 p-2 text-white hover:bg-white/10 rounded-full transition-all flex items-center gap-2"
+                >
+                  <span className="font-bold">Close</span>
+                  <X className="w-8 h-8" />
+                </button>
+                <AdaptiveQuizRenderer
+                  courseId={(course as any)._id || course.id}
+                  topicName={activeQuizTopic}
+                />
               </div>
             </div>
           )}
@@ -716,7 +801,7 @@ const CourseDetail: React.FC<CourseDetailProps> = ({
             <h3 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent mb-6 flex items-center">
               Course Content ({lessons.length} lessons)
             </h3>
-            
+
             <div className="space-y-4">
               {lessons.map((lesson: any, index: number) => {
                 const lessonId = (lesson as any)._id || lesson.id;
@@ -725,32 +810,29 @@ const CourseDetail: React.FC<CourseDetailProps> = ({
                 const isLessonCompleted = lessonProgress[lessonId];
                 const isFirstLesson = index === 0;
                 const prevLessonCompleted = prevLessonId ? lessonProgress[prevLessonId] : false;
-                
+
                 // Access logic: user must have course access (paid or free) and meet lesson prerequisites
                 const canAccess = hasAccess && (isFirstLesson || prevLessonCompleted);
-                
+
                 return (
                   <div
                     key={lesson.id}
                     onClick={() => canAccess && onLessonSelect(lesson)}
-                    className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all duration-300 ${
-                      canAccess
-                        ? 'cursor-pointer hover:bg-gradient-to-r hover:from-cyan-50 hover:to-blue-50 border-gray-200 hover:border-cyan-300 hover:shadow-md'
-                        : 'cursor-not-allowed opacity-60 border-gray-100'
-                    } ${
-                      isLessonCompleted
+                    className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all duration-300 ${canAccess
+                      ? 'cursor-pointer hover:bg-gradient-to-r hover:from-cyan-50 hover:to-blue-50 border-gray-200 hover:border-cyan-300 hover:shadow-md'
+                      : 'cursor-not-allowed opacity-60 border-gray-100'
+                      } ${isLessonCompleted
                         ? 'bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-200'
                         : 'bg-white hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-50'
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center space-x-4">
-                      <div className={`p-2 rounded-xl ${
-                        !hasAccess || (!isFirstLesson && !prevLessonCompleted) 
-                          ? 'bg-gray-100' 
-                          : isLessonCompleted 
-                          ? 'bg-emerald-100' 
+                      <div className={`p-2 rounded-xl ${!hasAccess || (!isFirstLesson && !prevLessonCompleted)
+                        ? 'bg-gray-100'
+                        : isLessonCompleted
+                          ? 'bg-emerald-100'
                           : 'bg-cyan-100'
-                      }`}>
+                        }`}>
                         {!hasAccess || (!isFirstLesson && !prevLessonCompleted) ? (
                           <Lock className="w-5 h-5 text-gray-400" />
                         ) : isLessonCompleted ? (
@@ -760,9 +842,8 @@ const CourseDetail: React.FC<CourseDetailProps> = ({
                         )}
                       </div>
                       <div>
-                        <p className={`font-semibold text-lg ${
-                          isLessonCompleted ? 'text-emerald-700' : 'text-gray-800'
-                        }`}>
+                        <p className={`font-semibold text-lg ${isLessonCompleted ? 'text-emerald-700' : 'text-gray-800'
+                          }`}>
                           {lesson.title}
                         </p>
                         <p className="text-sm text-gray-600 flex items-center space-x-1">
@@ -785,9 +866,9 @@ const CourseDetail: React.FC<CourseDetailProps> = ({
                     <span className="font-semibold">All lessons completed!</span>
                   </div>
                   <p className="text-sm text-cyber-grape/80">
-                    {isCompleted 
+                    {isCompleted
                       ? `You've successfully completed this course with all videos watched and assessment passed. You can take the assessment again anytime.`
-                      : hasAssessments 
+                      : hasAssessments
                         ? `You've watched all ${totalLessons} lessons. Click below to take the final assessment to complete the course and earn your certificate.`
                         : `You've watched all ${totalLessons} lessons. Click below to complete the course and earn your certificate.`
                     }
@@ -814,10 +895,10 @@ const CourseDetail: React.FC<CourseDetailProps> = ({
                 >
                   <Award className="w-5 h-5" />
                   <span>
-                    {isCompleted 
-                      ? 'Retake Assessment' 
-                      : hasAttemptedAssessment 
-                        ? 'Retake Assessment' 
+                    {isCompleted
+                      ? 'Retake Assessment'
+                      : hasAttemptedAssessment
+                        ? 'Retake Assessment'
                         : 'Take Assessment'
                     }
                   </span>
@@ -848,6 +929,32 @@ const CourseDetail: React.FC<CourseDetailProps> = ({
           courseTitle={course.title}
         />
       </div>
+
+      {/* Learning Copilot Section - Only show if user has access */}
+      {hasAccess && (
+        <>
+          {/* Learning Dashboard */}
+          <div className="mt-8">
+            <LearningDashboard courseId={(course as any)._id || course.id} />
+          </div>
+
+          {/* Enhanced Copilot Chat */}
+          <div className="mt-8 mb-8">
+            <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 p-8">
+              <h3 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent mb-6">
+                Your Learning Assistant
+              </h3>
+              <p className="text-gray-600 mb-6">
+                Get personalized help, ask questions about the course content, and receive adaptive learning suggestions.
+              </p>
+              <CopilotChat
+                courseId={(course as any)._id || course.id}
+                userName={(user as any)?.firstName || 'Learner'}
+              />
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Payment Modal */}
       <PaymentModal

@@ -135,13 +135,7 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
-  // OTP related fields
-  otpCode: {
-    type: String
-  },
-  otpExpiresAt: {
-    type: Date
-  },
+  // Deprecated OTP fields removed — authentication via email/password only
   // Skills and interests selection flag
   skillsSelected: {
     type: Boolean,

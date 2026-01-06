@@ -4,25 +4,45 @@ const Review = require('../models/Review');
 const Course = require('../models/Course');
 const User = require('../models/User');
 const { auth } = require('../middleware/auth');
+const mongoose = require('mongoose');
+
+// Helper to resolve course ID from slug if needed
+async function resolveCourse(idOrSlug) {
+  let course = null;
+  if (mongoose.Types.ObjectId.isValid(idOrSlug) && idOrSlug.length === 24) {
+    course = await Course.findById(idOrSlug);
+  }
+
+  if (!course) {
+    const allCourses = await Course.find();
+    course = allCourses.find(c => {
+      const slug = c.title.toLowerCase().replace(/[^a-z0-9]/g, '-');
+      return slug === idOrSlug;
+    });
+  }
+  return course;
+}
+
 
 // @route   GET /api/reviews/course/:courseId
 // @desc    Get reviews for a specific course
 // @access  Public
 router.get('/course/:courseId', async (req, res) => {
   try {
-    const { courseId } = req.params;
+    const { courseId: idOrSlug } = req.params;
     const { page = 1, limit = 10, sortBy = 'createdAt' } = req.query;
 
     // Validate course exists
-    const course = await Course.findById(courseId);
+    const course = await resolveCourse(idOrSlug);
     if (!course) {
       return res.status(404).json({ message: 'Course not found' });
     }
+    const courseId = course._id;
 
     const reviews = await Review.getCourseReviews(
-      courseId, 
-      parseInt(page), 
-      parseInt(limit), 
+      courseId,
+      parseInt(page),
+      parseInt(limit),
       sortBy
     );
 
@@ -59,8 +79,8 @@ router.get('/user/:userId', async (req, res) => {
     }
 
     const reviews = await Review.getUserReviews(
-      userId, 
-      parseInt(page), 
+      userId,
+      parseInt(page),
       parseInt(limit)
     );
 
@@ -87,13 +107,14 @@ router.get('/user/:userId', async (req, res) => {
 // @access  Public
 router.get('/course/:courseId/rating', async (req, res) => {
   try {
-    const { courseId } = req.params;
+    const { courseId: idOrSlug } = req.params;
 
     // Validate course exists
-    const course = await Course.findById(courseId);
+    const course = await resolveCourse(idOrSlug);
     if (!course) {
       return res.status(404).json({ message: 'Course not found' });
     }
+    const courseId = course._id;
 
     const ratingData = await Review.calculateCourseRating(courseId);
     res.json(ratingData);
@@ -108,8 +129,14 @@ router.get('/course/:courseId/rating', async (req, res) => {
 // @access  Private
 router.get('/course/:courseId/can-review', auth, async (req, res) => {
   try {
-    const { courseId } = req.params;
+    const { courseId: idOrSlug } = req.params;
     const userId = req.user.id;
+
+    const course = await resolveCourse(idOrSlug);
+    if (!course) {
+      return res.status(404).json({ message: 'Course not found' });
+    }
+    const courseId = course._id;
 
     const canReview = await Review.canUserReview(userId, courseId);
     res.json(canReview);
@@ -124,38 +151,39 @@ router.get('/course/:courseId/can-review', auth, async (req, res) => {
 // @access  Private
 router.post('/', auth, async (req, res) => {
   try {
-    const { courseId, rating, title, comment } = req.body;
+    const { courseId: idOrSlug, rating, title, comment } = req.body;
     const userId = req.user._id;
 
-    console.log('Creating review:', { courseId, rating, title, comment, userId });
+    console.log('Creating review:', { courseId: idOrSlug, rating, title, comment, userId });
 
     // Validate required fields
-    if (!courseId || !rating || !title || !comment) {
-      return res.status(400).json({ 
-        message: 'Please provide courseId, rating, title, and comment' 
+    if (!idOrSlug || !rating || !title || !comment) {
+      return res.status(400).json({
+        message: 'Please provide courseId, rating, title, and comment'
       });
     }
 
     // Validate rating
     if (rating < 1 || rating > 5) {
-      return res.status(400).json({ 
-        message: 'Rating must be between 1 and 5' 
+      return res.status(400).json({
+        message: 'Rating must be between 1 and 5'
       });
     }
 
     // Check if course exists
-    const course = await Course.findById(courseId);
+    const course = await resolveCourse(idOrSlug);
     if (!course) {
-      return res.status(404).json({ 
-        message: 'Course not found' 
+      return res.status(404).json({
+        message: 'Course not found'
       });
     }
+    const courseId = course._id;
 
     // Check if user can review
     const canReview = await Review.canUserReview(userId, courseId);
     if (!canReview.canReview) {
       console.log('User cannot review:', canReview.reason);
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: 'You cannot review this course',
         reason: canReview.reason
       });
@@ -183,8 +211,8 @@ router.post('/', auth, async (req, res) => {
   } catch (error) {
     console.error('Error creating review:', error);
     if (error.code === 11000) {
-      return res.status(400).json({ 
-        message: 'You have already reviewed this course' 
+      return res.status(400).json({
+        message: 'You have already reviewed this course'
       });
     }
     res.status(500).json({ message: 'Server error' });
@@ -214,8 +242,8 @@ router.put('/:reviewId', auth, async (req, res) => {
     // Update review
     if (rating !== undefined) {
       if (rating < 1 || rating > 5) {
-        return res.status(400).json({ 
-          message: 'Rating must be between 1 and 5' 
+        return res.status(400).json({
+          message: 'Rating must be between 1 and 5'
         });
       }
       review.rating = rating;
@@ -282,8 +310,8 @@ router.post('/:reviewId/helpful', auth, async (req, res) => {
 
     // Check if user is trying to mark their own review as helpful
     if (review.user.toString() === userId.toString()) {
-      return res.status(400).json({ 
-        message: 'You cannot mark your own review as helpful' 
+      return res.status(400).json({
+        message: 'You cannot mark your own review as helpful'
       });
     }
 
@@ -312,8 +340,8 @@ router.post('/:reviewId/report', auth, async (req, res) => {
     // Validate reason
     const validReasons = ['inappropriate', 'spam', 'fake', 'other'];
     if (!reason || !validReasons.includes(reason)) {
-      return res.status(400).json({ 
-        message: 'Please provide a valid report reason' 
+      return res.status(400).json({
+        message: 'Please provide a valid report reason'
       });
     }
 
@@ -325,8 +353,8 @@ router.post('/:reviewId/report', auth, async (req, res) => {
 
     // Check if user is trying to report their own review
     if (review.user.toString() === userId) {
-      return res.status(400).json({ 
-        message: 'You cannot report your own review' 
+      return res.status(400).json({
+        message: 'You cannot report your own review'
       });
     }
 

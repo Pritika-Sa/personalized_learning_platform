@@ -8,7 +8,7 @@ const router = express.Router();
 router.post('/skills-interests', auth, async (req, res) => {
   try {
     const { skills, interests, experienceLevel, completedCourses } = req.body;
-    const userId = req.user.userId;
+    const userId = req.user._id;
 
     if (!skills || !Array.isArray(skills) || skills.length === 0) {
       return res.status(400).json({ message: 'Skills array is required' });
@@ -71,7 +71,7 @@ router.post('/skills-interests', auth, async (req, res) => {
 // Get user profile
 router.get('/profile', auth, async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const user = await User.findById(userId).select('-password -otpCode -otpExpiresAt');
 
     if (!user) {
@@ -113,7 +113,7 @@ router.get('/profile', auth, async (req, res) => {
 // Update user profile
 router.put('/profile', auth, async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.user._id;
     const updates = req.body;
 
     // Remove sensitive fields that shouldn't be updated via this endpoint

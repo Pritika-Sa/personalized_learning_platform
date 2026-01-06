@@ -107,7 +107,7 @@ const PaymentButton: React.FC<PaymentButtonProps> = ({
         return (
           <>
             <CreditCard className="w-5 h-5" />
-            <span>Pay {paymentService.formatCurrency(course.price)}</span>
+            <span>Start Learning</span>
           </>
         );
     }

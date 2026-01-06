@@ -4,12 +4,12 @@ require('dotenv').config();
 class GeminiAIService {
   constructor() {
     this.isGeminiAvailable = false;
-    
+
     if (!process.env.GEMINI_API_KEY) {
       console.warn('⚠️  GEMINI_API_KEY not found in environment variables. Using fallback responses.');
       return;
     }
-    
+
     try {
       this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
       // Use the correct model name for the latest API
@@ -28,7 +28,7 @@ class GeminiAIService {
     if (!this.model) {
       return false;
     }
-    
+
     try {
       const result = await this.model.generateContent("Test");
       await result.response;
@@ -51,32 +51,32 @@ class GeminiAIService {
   async getCourseRecommendations(userProfile, availableCourses, userQuery = '') {
     try {
       console.log('🤖 Processing course recommendation request...');
-      
+
       // Test Gemini availability if not already tested
       if (!this.isGeminiAvailable && this.model) {
         console.log('🔍 Testing Gemini AI availability...');
         await this.testGeminiAvailability();
       }
-      
+
       // If Gemini is available, use it
       if (this.isGeminiAvailable && this.model) {
         console.log('🤖 Using Gemini AI for recommendations...');
-        
+
         // Prepare user context
         const userContext = this.formatUserContext(userProfile);
-        
+
         // Prepare course data
         const courseData = this.formatCourseData(availableCourses);
-        
+
         // Create comprehensive prompt
         const prompt = this.buildRecommendationPrompt(userContext, courseData, userQuery);
-        
+
         const result = await this.model.generateContent(prompt);
         const response = await result.response;
         const text = response.text();
-        
+
         console.log('✅ Gemini AI responded successfully');
-        
+
         return {
           success: true,
           recommendations: text,
@@ -94,7 +94,7 @@ class GeminiAIService {
       }
     } catch (error) {
       console.error('❌ Recommendation Error:', error.message);
-      
+
       return {
         success: true,
         recommendations: this.getIntelligentRecommendations(userProfile, availableCourses, userQuery),
@@ -209,24 +209,24 @@ Remember: You're a learning mentor, not just a course catalog. Provide guidance,
   async generateChatResponse(userMessage, userContext = null, conversationHistory = []) {
     try {
       console.log('🤖 Generating chat response...');
-      
+
       // Test Gemini availability if not already tested
       if (!this.isGeminiAvailable && this.model) {
         await this.testGeminiAvailability();
       }
-      
+
       // If Gemini is available, use it
       if (this.isGeminiAvailable && this.model) {
         console.log('🤖 Using Gemini AI for chat response...');
-        
+
         const prompt = this.buildChatPrompt(userMessage, userContext, conversationHistory);
-        
+
         const result = await this.model.generateContent(prompt);
         const response = await result.response;
         const text = response.text();
-        
+
         console.log('✅ Gemini chat response generated successfully');
-        
+
         return {
           success: true,
           response: text,
@@ -244,7 +244,7 @@ Remember: You're a learning mentor, not just a course catalog. Provide guidance,
       }
     } catch (error) {
       console.error('❌ Chat Response Error:', error.message);
-      
+
       return {
         success: true,
         response: this.getIntelligentChatResponse(userMessage, userContext),
@@ -331,7 +331,7 @@ Be encouraging, specific, and actionable!
       const result = await this.model.generateContent(prompt);
       const response = await result.response;
       const text = response.text();
-      
+
       return {
         success: true,
         analysis: text,
@@ -349,6 +349,135 @@ Be encouraging, specific, and actionable!
   }
 
   /**
+   * Generate a week-by-week personalized learning plan for a selected core course.
+   * This method keeps prompts concise and privacy-safe (no raw PII is sent).
+   * @param {Object} userContext - minimal user context (level, time availability, goals)
+   * @param {Object} course - course document or summary
+   * @param {Object} options - { weeks, hoursPerWeek }
+   */
+  async generateLearningPlan(userContext, course, options = {}) {
+    try {
+      const weeks = options.weeks || 8;
+      const hoursPerWeek = options.hoursPerWeek || 5;
+
+      // Build a task-focused, privacy-safe prompt
+      const prompt = `Create a ${weeks}-week structured learning plan for the course titled "${course.title}".\n` +
+        `User level: ${userContext.level || 'beginner'}. Weekly time: ${hoursPerWeek} hours. Learning goals: ${userContext.goals || 'general understanding'}.\n` +
+        `Return a JSON array of weeks where each week contains: weekNumber, topics (array), hoursPerWeek, tasks (short list). Keep responses short and actionable.`;
+
+      if (this.isGeminiAvailable && this.model) {
+        const result = await this.model.generateContent(prompt);
+        const response = await result.response;
+        const text = response.text();
+        // Expecting JSON-like output; attempt parse, fallback to simple heuristics
+        try {
+          const parsed = JSON.parse(text);
+          return { success: true, plan: parsed, source: 'gemini-ai' };
+        } catch (err) {
+          // Fallback: split text heuristically into weeks
+          const lines = text.split('\n').slice(0, weeks * 5);
+          const plan = [];
+          for (let i = 1; i <= weeks; i++) plan.push({ weekNumber: i, topics: [`Week ${i} overview`], hoursPerWeek, tasks: ['Study videos', 'Complete exercises'] });
+          return { success: true, plan, source: 'gemini-ai-text-fallback' };
+        }
+      }
+
+      // Local fallback plan generator (deterministic)
+      const plan = [];
+      for (let i = 1; i <= weeks; i++) {
+        plan.push({
+          weekNumber: i,
+          topics: [`Core concept ${i}`, ...(course.topics ? [course.topics[i - 1] || `Topic ${i}`] : [])],
+          hoursPerWeek,
+          tasks: ['Watch core videos', 'Read notes', 'Do practice problems']
+        });
+      }
+
+      return { success: true, plan, source: 'fallback' };
+    } catch (error) {
+      console.error('Error generating learning plan:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Generate an adaptive quiz for a specific topic and difficulty
+   * @param {string} topicName 
+   * @param {string} difficulty - easy, medium, hard
+   * @param {number} count - number of questions
+   * @returns {Promise<Object>}
+   */
+  async generateAdaptiveQuizQuestions(topicName, difficulty = 'medium', count = 10) {
+    try {
+      const prompt = `Generate a JSON array of ${count} ${difficulty}-level multiple-choice questions for the topic "${topicName}".
+Each question should have:
+- questionText
+- options (array of 4 strings)
+- correctAnswerIndex (0-3)
+- explanation
+- difficulty (must be "${difficulty}")
+- concepts (array of related concepts tested)
+
+Return ONLY the JSON array.`;
+
+      if (this.isGeminiAvailable && this.model) {
+        const result = await this.model.generateContent(prompt);
+        const text = result.response.text();
+
+        // Clean the response from markdown if needed
+        const cleanJson = text.replace(/```json\n?|\n?```/g, '').trim();
+        const questions = JSON.parse(cleanJson);
+
+        return { success: true, questions };
+      }
+
+      // Fallback questions
+      return {
+        success: true,
+        questions: Array.from({ length: count }).map((_, i) => ({
+          questionText: `Sample ${difficulty} question about ${topicName} #${i + 1}`,
+          options: ["Option A", "Option B", "Option C", "Option D"],
+          correctAnswerIndex: 0,
+          explanation: "This is a fallback question.",
+          difficulty,
+          concepts: [topicName]
+        }))
+      };
+    } catch (error) {
+      console.error('Error generating quiz questions:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Generate a copilot-style chat reply aware of course context and user progress.
+   * The method avoids sending PII or raw course content; instead it sends short contextual cues.
+   */
+  async generateCopilotReply(userMessage, userContext = {}, courseContext = {}, options = {}) {
+    try {
+      let prompt = "";
+      if (options.systemPrompt) {
+        prompt = `${options.systemPrompt}\n\nUser Question: ${userMessage}`;
+      } else {
+        const contextSnippet = `Course: ${courseContext.title || 'unknown'}; Current week: ${options.currentWeek || 1}; Current topic: ${options.currentTopic || 'N/A'}.`;
+        prompt = `You are a Learning Copilot. Use the following concise context (NO raw PII, NO large content dumps): ${contextSnippet}\nUser level: ${userContext.level || 'unknown'}; Goals: ${userContext.goals || 'N/A'}.\nUser question: ${userMessage}\nRespond step-by-step, provide next-study actions, and if relevant, propose a short quiz item. Keep the response focused on pedagogy and actionable guidance.`;
+      }
+
+      if (this.isGeminiAvailable && this.model) {
+        const result = await this.model.generateContent(prompt);
+        const response = await result.response;
+        return { success: true, response: response.text(), source: 'gemini-ai' };
+      }
+
+      // Fallback reply
+      return { success: true, response: `I recommend you review the key concept for ${courseContext.title || 'this course'}. Try: 1) Rewatch the short lecture on ${progressState.currentTopic || 'the current topic'}. 2) Attempt a practice problem. Ask me for a quiz when ready.`, source: 'fallback' };
+    } catch (error) {
+      console.error('Copilot reply error:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
    * Intelligent course recommendations using rule-based logic
    */
   getIntelligentRecommendations(userProfile, availableCourses, userQuery) {
@@ -356,15 +485,15 @@ Be encouraging, specific, and actionable!
     const interests = userProfile.interests || '';
     const completedCourses = userProfile.completedCourses || [];
     const userLevel = userProfile.level || 'beginner';
-    
+
     // Score courses based on user profile
     const scoredCourses = availableCourses.map(course => {
       let score = 0;
       let reasons = [];
-      
+
       // Skill matching
       if (course.skills) {
-        const skillMatches = course.skills.filter(skill => 
+        const skillMatches = course.skills.filter(skill =>
           skills.some(userSkill => userSkill.toLowerCase().includes(skill.toLowerCase()))
         );
         score += skillMatches.length * 3;
@@ -372,17 +501,17 @@ Be encouraging, specific, and actionable!
           reasons.push(`Matches your ${skillMatches.join(', ')} skills`);
         }
       }
-      
+
       // Level appropriateness
       if (course.level === userLevel) {
         score += 2;
         reasons.push(`Perfect for your ${userLevel} level`);
       }
-      
+
       // Interest matching
       if (interests && course.description) {
         const interestKeywords = interests.toLowerCase().split(/[,\s]+/);
-        const descMatches = interestKeywords.filter(keyword => 
+        const descMatches = interestKeywords.filter(keyword =>
           course.description.toLowerCase().includes(keyword)
         );
         score += descMatches.length;
@@ -390,28 +519,28 @@ Be encouraging, specific, and actionable!
           reasons.push(`Aligns with your interests`);
         }
       }
-      
+
       // Avoid completed courses
       if (completedCourses.includes(course._id.toString())) {
         score -= 10;
       }
-      
+
       // Popularity boost
       score += Math.min((course.students || 0) / 100, 1);
-      
+
       return { ...course, score, reasons };
     });
-    
+
     // Sort by score and get top recommendations
     const topCourses = scoredCourses
       .filter(course => course.score > 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, 5);
-    
+
     // Generate intelligent response
     let response = `# 🎯 Personalized Course Recommendations\n\n`;
     response += `Hello ${userProfile.name || 'there'}! Based on your profile and interests, here are my top recommendations:\n\n`;
-    
+
     if (topCourses.length === 0) {
       response += "I'd love to help you find the perfect courses! Since you're just getting started, here are some excellent beginner-friendly options:\n\n";
       const beginnerCourses = availableCourses.filter(c => c.level === 'beginner').slice(0, 3);
@@ -431,7 +560,7 @@ Be encouraging, specific, and actionable!
         response += `   • ${course.students || 0} students enrolled\n\n`;
       });
     }
-    
+
     // Add personalized learning tips
     response += `## 💡 Personalized Learning Tips:\n\n`;
     if (userLevel === 'beginner') {
@@ -447,9 +576,9 @@ Be encouraging, specific, and actionable!
       response += `• Stay updated with the latest industry trends\n`;
       response += `• Consider contributing to open-source projects\n`;
     }
-    
+
     response += `\n🚀 Ready to start your learning journey? Choose a course that excites you most!`;
-    
+
     return response;
   }
 
@@ -459,7 +588,7 @@ Be encouraging, specific, and actionable!
   getIntelligentChatResponse(userMessage, userContext) {
     const lowerMessage = userMessage.toLowerCase();
     const userName = userContext?.name || 'there';
-    
+
     // Greeting responses
     if (lowerMessage.match(/\b(hello|hi|hey|greetings)\b/)) {
       const greetings = [
@@ -467,21 +596,21 @@ Be encouraging, specific, and actionable!
         `Hi ${userName}! 🌟 Ready to explore new skills today? I can recommend courses, create study plans, and track your progress.`,
         `Hey ${userName}! 🚀 What would you like to learn today? I'm here to guide your learning journey!`
       ];
-      return greetings[Math.floor(Math.random() * greetings.length)] + 
-             `\n\n💡 Try asking me:\n• "Recommend programming courses"\n• "Create a study plan"\n• "Show my progress"`;
+      return greetings[Math.floor(Math.random() * greetings.length)] +
+        `\n\n💡 Try asking me:\n• "Recommend programming courses"\n• "Create a study plan"\n• "Show my progress"`;
     }
-    
+
     // Learning guidance
     if (lowerMessage.match(/\b(learn|study|how to)\b/)) {
       return `🎯 Great question! Learning is a journey, and I'm here to guide you.\n\n` +
-             `**Here's how I can help:**\n` +
-             `📚 **Course Discovery** - Find courses matching your interests\n` +
-             `⏰ **Study Planning** - Create personalized schedules\n` +
-             `📈 **Progress Tracking** - Monitor your achievements\n` +
-             `💡 **Learning Tips** - Get strategies for effective learning\n\n` +
-             `What specific area would you like to explore? Just tell me your interests!`;
+        `**Here's how I can help:**\n` +
+        `📚 **Course Discovery** - Find courses matching your interests\n` +
+        `⏰ **Study Planning** - Create personalized schedules\n` +
+        `📈 **Progress Tracking** - Monitor your achievements\n` +
+        `💡 **Learning Tips** - Get strategies for effective learning\n\n` +
+        `What specific area would you like to explore? Just tell me your interests!`;
     }
-    
+
     // Motivation and encouragement
     if (lowerMessage.match(/\b(difficult|hard|stuck|frustrated|give up)\b/)) {
       const motivationalResponses = [
@@ -490,34 +619,34 @@ Be encouraging, specific, and actionable!
         `It's normal to feel stuck sometimes. Take a break, then come back with fresh eyes. Progress takes time! 🚀`
       ];
       return motivationalResponses[Math.floor(Math.random() * motivationalResponses.length)] +
-             `\n\n**Here's what you can do:**\n` +
-             `• Break down complex topics into smaller chunks\n` +
-             `• Practice regularly, even if just for 15 minutes\n` +
-             `• Don't hesitate to ask questions or seek help\n` +
-             `• Remember why you started this learning journey\n\n` +
-             `Would you like me to suggest some beginner-friendly courses or study techniques?`;
+        `\n\n**Here's what you can do:**\n` +
+        `• Break down complex topics into smaller chunks\n` +
+        `• Practice regularly, even if just for 15 minutes\n` +
+        `• Don't hesitate to ask questions or seek help\n` +
+        `• Remember why you started this learning journey\n\n` +
+        `Would you like me to suggest some beginner-friendly courses or study techniques?`;
     }
-    
+
     // Career guidance
     if (lowerMessage.match(/\b(career|job|work|professional)\b/)) {
       return `🎯 Thinking about your career? That's smart planning!\n\n` +
-             `**I can help you:**\n` +
-             `🔄 **Skill Gap Analysis** - Identify what skills you need\n` +
-             `🎯 **Career Path Planning** - Map out your learning journey\n` +
-             `📈 **Industry Trends** - Learn about in-demand skills\n` +
-             `💼 **Practical Projects** - Build a portfolio that stands out\n\n` +
-             `What field or role are you interested in? I can recommend specific courses to get you there!`;
+        `**I can help you:**\n` +
+        `🔄 **Skill Gap Analysis** - Identify what skills you need\n` +
+        `🎯 **Career Path Planning** - Map out your learning journey\n` +
+        `📈 **Industry Trends** - Learn about in-demand skills\n` +
+        `💼 **Practical Projects** - Build a portfolio that stands out\n\n` +
+        `What field or role are you interested in? I can recommend specific courses to get you there!`;
     }
-    
+
     // Default intelligent response
     return `Thanks for your message! I'm your AI learning assistant, and I'm here to help you grow your skills.\n\n` +
-           `🤔 **I noticed you asked about:** "${userMessage}"\n\n` +
-           `While I'm continuously learning to understand all questions, I'm especially good at:\n` +
-           `📚 **Course Recommendations** - "Show me programming courses"\n` +
-           `⏰ **Study Planning** - "Create a study schedule"\n` +
-           `📊 **Progress Tracking** - "How am I doing?"\n` +
-           `💡 **Learning Guidance** - Ask me anything about learning!\n\n` +
-           `What would you like to explore today? 🚀`;
+      `🤔 **I noticed you asked about:** "${userMessage}"\n\n` +
+      `While I'm continuously learning to understand all questions, I'm especially good at:\n` +
+      `📚 **Course Recommendations** - "Show me programming courses"\n` +
+      `⏰ **Study Planning** - "Create a study schedule"\n` +
+      `📊 **Progress Tracking** - "How am I doing?"\n` +
+      `💡 **Learning Guidance** - Ask me anything about learning!\n\n` +
+      `What would you like to explore today? 🚀`;
   }
 
   /**
@@ -527,51 +656,51 @@ Be encouraging, specific, and actionable!
     const skills = userProfile.skills || [];
     const interests = userProfile.interests || '';
     const completedCourses = userProfile.completedCourses || [];
-    
+
     // Basic recommendation logic
     let recommendations = `# 🎯 Course Recommendations for ${userProfile.firstName}\n\n`;
-    
+
     // Filter and sort available courses
     let recommendedCourses = [];
-    
+
     if (skills.length === 0) {
       // For beginners, recommend beginner-level courses
-      recommendedCourses = availableCourses.filter(course => 
-        course.level === 'Beginner' || 
+      recommendedCourses = availableCourses.filter(course =>
+        course.level === 'Beginner' ||
         course.title.toLowerCase().includes('basic') ||
         course.title.toLowerCase().includes('introduction') ||
         course.title.toLowerCase().includes('fundamentals')
       ).slice(0, 4);
-      
+
       recommendations += `## 🚀 Getting Started Recommendations\n\n`;
       recommendations += `Since you're just starting out, here are some foundational courses I recommend:\n\n`;
-      
+
     } else {
       // For users with skills, recommend based on their skills and interests
       recommendedCourses = availableCourses.filter(course => {
         const courseText = `${course.title} ${course.description || ''} ${course.category || ''}`.toLowerCase();
-        
+
         // Match based on user skills
-        const skillMatch = skills.some(skill => 
+        const skillMatch = skills.some(skill =>
           courseText.includes(skill.toLowerCase()) ||
           skill.toLowerCase().includes(courseText.split(' ')[0])
         );
-        
+
         // Match based on interests
         const interestMatch = interests && courseText.includes(interests.toLowerCase());
-        
+
         return skillMatch || interestMatch;
       }).slice(0, 4);
-      
+
       // If no matches based on skills/interests, get some popular courses
       if (recommendedCourses.length === 0) {
         recommendedCourses = availableCourses.slice(0, 4);
       }
-      
+
       recommendations += `## 📈 Next Level Recommendations\n\n`;
       recommendations += `Based on your current skills (${skills.join(', ')}), here's what I suggest:\n\n`;
     }
-    
+
     // Add actual course recommendations
     if (recommendedCourses.length > 0) {
       recommendedCourses.forEach((course, index) => {
@@ -582,7 +711,7 @@ Be encouraging, specific, and actionable!
         const price = course.price === 0 ? '🆓 Free' : `💰 ₹${course.price}`;
         const rating = course.rating ? `⭐ ${course.rating}/5` : '⭐ New';
         const enrolled = course.enrolledStudents?.length || 0;
-        
+
         recommendations += `### ${icon} **${course.title}**\n`;
         recommendations += `📋 ${course.description || 'Comprehensive course to boost your skills'}\n`;
         recommendations += `🎚️ **Level**: ${level} | ⏱️ **Duration**: ${duration} | ${price}\n`;
@@ -595,15 +724,15 @@ Be encouraging, specific, and actionable!
       recommendations += `**🌐 Web Development Basics** - HTML, CSS, and JavaScript fundamentals\n`;
       recommendations += `**� Introduction to Databases** - Essential for any tech career\n\n`;
     }
-    
+
     // Add learning paths based on interests
     if (interests.toLowerCase().includes('data')) {
-      const dataCourses = availableCourses.filter(course => 
+      const dataCourses = availableCourses.filter(course =>
         course.title.toLowerCase().includes('data') ||
         course.title.toLowerCase().includes('sql') ||
         course.title.toLowerCase().includes('python')
       ).slice(0, 2);
-      
+
       if (dataCourses.length > 0) {
         recommendations += `\n## 📊 Data Science Path\n\n`;
         dataCourses.forEach(course => {
@@ -612,15 +741,15 @@ Be encouraging, specific, and actionable!
         recommendations += `\n`;
       }
     }
-    
+
     if (interests.toLowerCase().includes('web')) {
-      const webCourses = availableCourses.filter(course => 
+      const webCourses = availableCourses.filter(course =>
         course.title.toLowerCase().includes('web') ||
         course.title.toLowerCase().includes('html') ||
         course.title.toLowerCase().includes('javascript') ||
         course.title.toLowerCase().includes('react')
       ).slice(0, 2);
-      
+
       if (webCourses.length > 0) {
         recommendations += `\n## 🌐 Web Development Path\n\n`;
         webCourses.forEach(course => {
@@ -629,7 +758,7 @@ Be encouraging, specific, and actionable!
         recommendations += `\n`;
       }
     }
-    
+
     recommendations += `## 💡 Why These Recommendations?\n\n`;
     recommendations += `1. **Skill Progression** - Building on what you already know\n`;
     recommendations += `2. **Market Demand** - These skills are highly sought after\n`;
@@ -637,7 +766,7 @@ Be encouraging, specific, and actionable!
     recommendations += `📚 **Total Available Courses**: ${availableCourses.length}\n`;
     recommendations += `🎯 **Completed Courses**: ${completedCourses.length}\n\n`;
     recommendations += `*Ready to start your learning journey? Choose a course that excites you most!* 🚀`;
-    
+
     return recommendations;
   }
 
@@ -649,9 +778,9 @@ Be encouraging, specific, and actionable!
     const skills = userProfile.skills || [];
     const completedCount = completedCourses.length;
     const currentCount = currentCourses.length;
-    
+
     let analysis = `# 📈 Learning Progress Analysis for ${name}\n\n`;
-    
+
     analysis += `## 🎉 Your Learning Journey So Far\n\n`;
     if (completedCount > 0) {
       analysis += `Congratulations! You've completed **${completedCount}** course${completedCount > 1 ? 's' : ''}. That's fantastic progress! 🎉\n\n`;
@@ -659,11 +788,11 @@ Be encouraging, specific, and actionable!
     } else {
       analysis += `You're at the beginning of an exciting learning journey! Every expert was once a beginner. 🌱\n\n`;
     }
-    
+
     if (currentCount > 0) {
       analysis += `**Currently Learning**: ${currentCourses.map(c => c.title || c).join(', ')}\n\n`;
     }
-    
+
     analysis += `## 🛠 Your Skills Development\n\n`;
     if (skills.length > 0) {
       analysis += `**Current Skills**: ${skills.join(', ')}\n\n`;
@@ -671,23 +800,23 @@ Be encouraging, specific, and actionable!
     } else {
       analysis += `Ready to develop your first technical skills? The journey of a thousand miles begins with a single step! 🚀\n\n`;
     }
-    
+
     analysis += `## 🎯 Strengths & Next Steps\n\n`;
     analysis += `**Your Strengths**:\n`;
     analysis += `- 🌟 Commitment to continuous learning\n`;
     analysis += `- 🎯 Clear focus on skill development\n`;
     analysis += `- 💡 Proactive approach to career growth\n\n`;
-    
+
     analysis += `**Recommended Next Steps**:\n`;
     analysis += `1. 📚 Complete any ongoing courses\n`;
     analysis += `2. 🛠 Practice with hands-on projects\n`;
     analysis += `3. 🤝 Join developer communities\n`;
     analysis += `4. 🎯 Set specific learning goals\n\n`;
-    
+
     analysis += `## 🚀 Keep Going!\n\n`;
     analysis += `Remember: "The expert in anything was once a beginner." You're making great progress, and every step forward is an achievement worth celebrating! 🎉\n\n`;
     analysis += `*Keep learning, keep growing, and keep pushing forward!* 💪`;
-    
+
     return analysis;
   }
 
@@ -697,12 +826,12 @@ Be encouraging, specific, and actionable!
   getFallbackChatResponse(userMessage, userContext) {
     const message = userMessage.toLowerCase();
     const name = userContext?.firstName || 'there';
-    
+
     // Detect intent and provide appropriate response
     if (message.includes('hello') || message.includes('hi') || message.includes('hey')) {
       return `Hello ${name}! 👋 Welcome to your AI learning assistant! I'm here to help you find the perfect courses, plan your studies, and track your progress. What would you like to explore today?`;
     }
-    
+
     if (message.includes('recommend') || message.includes('course') || message.includes('learn')) {
       const skills = userContext?.skills?.join(', ') || 'programming fundamentals';
       return `🎯 I'd love to recommend some courses for you! Based on your profile, here are some suggestions:
@@ -720,7 +849,7 @@ Be encouraging, specific, and actionable!
 
 💡 **What specific area interests you most?** I can provide more targeted recommendations based on your goals!`;
     }
-    
+
     if (message.includes('progress') || message.includes('achievement') || message.includes('completed')) {
       const completedCount = userContext?.completedCourses?.length || 0;
       return `📈 **Your Learning Progress**
@@ -729,9 +858,9 @@ Be encouraging, specific, and actionable!
 🎯 Current Level: **${userContext?.level || 1}**
 ⭐ Experience Points: **${userContext?.xp || 0}**
 
-${completedCount > 0 ? 
-  `Great work on completing your courses! You're building solid foundations. 💪` : 
-  `You're just getting started - and that's exciting! Every expert was once a beginner. 🌱`}
+${completedCount > 0 ?
+          `Great work on completing your courses! You're building solid foundations. 💪` :
+          `You're just getting started - and that's exciting! Every expert was once a beginner. 🌱`}
 
 **Next Steps:**
 1. 📚 Continue with hands-on practice
@@ -741,7 +870,7 @@ ${completedCount > 0 ?
 
 Keep up the fantastic work! 🚀`;
     }
-    
+
     if (message.includes('help') || message.includes('what can you do')) {
       return `🤖 **I'm your AI Learning Assistant!** Here's how I can help:
 
@@ -773,7 +902,7 @@ Keep up the fantastic work! 🚀`;
 
 What would you like to explore? 🚀`;
     }
-    
+
     // INTELLIGENT RESPONSES FOR SPECIFIC TOPICS
     if (message.includes('trending') || message.includes('popular') || message.includes('hot')) {
       return `🔥 **Trending Programming Topics & Technologies:**
@@ -800,7 +929,7 @@ What would you like to explore? 🚀`;
 
 What technology interests you most? 🎯`;
     }
-    
+
     if (message.includes('python')) {
       return `🐍 **Python is an excellent choice!** It's perfect for:
 
@@ -825,7 +954,7 @@ What technology interests you most? 🎯`;
 
 What's your experience level with Python? 🎯`;
     }
-    
+
     if (message.includes('programming') || message.includes('coding') || message.includes('development')) {
       return `💻 **Programming is an amazing skill to learn!** Here's what's popular:
 
@@ -856,7 +985,7 @@ What's your experience level with Python? 🎯`;
 
 Let's find the perfect learning path for you! 🚀`;
     }
-    
+
     // Default response for general queries
     return `Thanks for your message! 😊 I'm your AI learning assistant, and I'm here to help you with:
 
@@ -914,20 +1043,20 @@ Please choose one or more options:
 
   processQuestionnaireStep(step, userResponse, sessionData = {}) {
     sessionData.responses = sessionData.responses || {};
-    
+
     switch (step) {
       case 1:
         sessionData.responses.experience = userResponse;
         return this.getQuestion2(userResponse);
-      
+
       case 2:
         sessionData.responses.goals = userResponse;
         return this.getQuestion3(userResponse, sessionData);
-      
+
       case 3:
         sessionData.responses.timeCommitment = userResponse;
         return this.generatePersonalizedRecommendations(sessionData);
-      
+
       default:
         return this.getWelcomeQuestionnaire();
     }
@@ -996,10 +1125,10 @@ This helps me recommend the right pace and course format:
 
   async generatePersonalizedRecommendations(sessionData) {
     const { experience, goals, timeCommitment } = sessionData.responses;
-    
+
     // Create personalized learning plan with videos
     const recommendations = this.buildPersonalizedPlan(experience, goals, timeCommitment);
-    
+
     return {
       message: `🎉 **Your Personalized Learning Plan is Ready!**
 
@@ -1012,13 +1141,13 @@ ${recommendations.plan}
 
 🎥 **Recommended Videos to Start:**
 
-${recommendations.videos.map((video, index) => 
-  `**${index + 1}. ${video.title}**
+${recommendations.videos.map((video, index) =>
+        `**${index + 1}. ${video.title}**
 🎬 ${video.description}
 ⏱️ Duration: ${video.duration}
 🎯 Level: ${video.level}
 📺 [Watch Now](${video.url})`
-).join('\n\n')}
+      ).join('\n\n')}
 
 💡 **Next Steps:**
 1. Start with the first video above
@@ -1071,7 +1200,7 @@ Ready to begin? Just click on any video to start learning! 🚀`,
         {
           title: "JavaScript Crash Course",
           description: "Master JavaScript fundamentals in one comprehensive video",
-          duration: "1.5 hours", 
+          duration: "1.5 hours",
           level: "Beginner",
           url: "https://www.youtube.com/watch?v=hdI2bqOjy3c"
         },
@@ -1113,7 +1242,7 @@ Ready to begin? Just click on any video to start learning! 🚀`,
           title: "Machine Learning Explained",
           description: "Understand ML concepts with practical examples",
           duration: "2 hours",
-          level: "Intermediate", 
+          level: "Intermediate",
           url: "https://www.youtube.com/watch?v=ukzFI9rgwfU"
         },
         {
@@ -1238,12 +1367,12 @@ Ready to begin? Just click on any video to start learning! 🚀`,
       tips.push("💻 Practice algorithmic thinking with coding challenges");
       tips.push("🔧 Learn version control (Git) early - it's essential");
     }
-    
+
     if (interests.includes('web-development')) {
       tips.push("🌐 Build responsive websites from day one");
       tips.push("⚡ Focus on performance optimization and accessibility");
     }
-    
+
     if (interests.includes('data-science')) {
       tips.push("📊 Master data visualization - it's crucial for communication");
       tips.push("🧮 Practice statistics alongside programming");
@@ -1254,7 +1383,7 @@ Ready to begin? Just click on any video to start learning! 🚀`,
 
   generateStudyPlan(userProfile, recommendedCourses) {
     const { experience, interests, goals } = userProfile;
-    
+
     let studyPlan = {
       duration: "3-6 months",
       schedule: "3-4 hours per week",

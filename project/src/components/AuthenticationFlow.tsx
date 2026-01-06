@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import LandingPage from './LandingPage';
-import OtpVerificationPage from './OtpVerificationPage';
 import SkillsInterestsSelection from './SkillsInterestsSelection';
 
-type AuthStep = 'landing' | 'otp-verification' | 'skills-interests';
+type AuthStep = 'landing' | 'skills-interests';
 
 interface AuthFlowState {
   step: AuthStep;
@@ -32,23 +31,13 @@ export default function AuthenticationFlow() {
     }
   }, []);
 
-  const handleNavigateToOtp = (email: string, isSignup: boolean) => {
-    setAuthState({
-      step: 'otp-verification',
-      email,
-      isSignup
-    });
+  // OTP removed; registration and login handled directly on LandingPage
+  const handleNavigateToOtp = (_email: string, _isSignup: boolean) => {
+    // noop kept for compatibility
   };
 
   const handleSignupSuccess = () => {
-    // After successful signup OTP verification, redirect to login
-    setAuthState({
-      step: 'landing',
-      email: '',
-      isSignup: false
-    });
-    // Optional: Show success message
-    // You could add a state to show a success message on the landing page
+    setAuthState({ step: 'landing', email: '', isSignup: false });
   };
 
   const handleLoginSuccess = async () => {
@@ -127,25 +116,14 @@ export default function AuthenticationFlow() {
           onNavigateToOtp={handleNavigateToOtp}
         />
       );
-    
-    case 'otp-verification':
-      return (
-        <OtpVerificationPage
-          onBack={handleBackToLanding}
-          email={authState.email}
-          isSignup={authState.isSignup}
-          onLoginSuccess={handleLoginSuccess}
-          onSignupSuccess={handleSignupSuccess}
-        />
-      );
-    
+
     case 'skills-interests':
       return (
         <SkillsInterestsSelection
           onComplete={handleSkillsInterestsComplete}
         />
       );
-    
+
     default:
       return (
         <LandingPage

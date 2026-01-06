@@ -88,15 +88,39 @@ class ApiService {
     };
 
     try {
+      // Offline support: check cache for GET requests
+      if (options.method === 'GET' || !options.method) {
+        const cached = localStorage.getItem(`cache_${endpoint}`);
+        if (cached && !navigator.onLine) {
+          console.log('Serving from cache (Offline mode):', endpoint);
+          return JSON.parse(cached);
+        }
+      }
+
       const response = await fetch(url, config);
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
       }
 
-      return await response.json();
+      const data = await response.json();
+
+      // Cache successful GET responses
+      if (options.method === 'GET' || !options.method) {
+        localStorage.setItem(`cache_${endpoint}`, JSON.stringify(data));
+      }
+
+      return data;
     } catch (error) {
+      // Fallback to cache if network fails
+      if (options.method === 'GET' || !options.method) {
+        const cached = localStorage.getItem(`cache_${endpoint}`);
+        if (cached) {
+          console.warn('Network failed, serving from cache:', endpoint);
+          return JSON.parse(cached);
+        }
+      }
       console.error('API request failed:', error);
       throw error;
     }
@@ -108,11 +132,11 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify(data),
     });
-    
+
     if (response.token) {
       this.setToken(response.token);
     }
-    
+
     return response;
   }
 
@@ -121,11 +145,11 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify(data),
     });
-    
+
     if (response.token) {
       this.setToken(response.token);
     }
-    
+
     return response;
   }
 
@@ -195,20 +219,20 @@ export const coursesApi = {
   },
   get: (courseId: string) => fetch(`${API_BASE_URL}/courses/${courseId}`).then(r => r.json()),
   create: async (data: any, token: string) => {
-    const response = await fetch(`${API_BASE_URL}/courses`, { 
-      method: 'POST', 
-      headers: { 
-        'Content-Type': 'application/json', 
-        'Authorization': `Bearer ${token}` 
-      }, 
-      body: JSON.stringify(data) 
+    const response = await fetch(`${API_BASE_URL}/courses`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(data)
     });
-    
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
     }
-    
+
     return response.json();
   },
   update: (courseId: string, data: any, token: string) => fetch(`${API_BASE_URL}/courses/${courseId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(data) }).then(r => r.json()),
@@ -228,12 +252,12 @@ export const coursesApi = {
         'Authorization': `Bearer ${token}`
       }
     });
-    
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
     }
-    
+
     return response.json();
   },
   getCourseStatus: async (courseId: string, token: string) => {
@@ -242,12 +266,12 @@ export const coursesApi = {
         'Authorization': `Bearer ${token}`
       }
     });
-    
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
     }
-    
+
     return response.json();
   }
 };
@@ -263,14 +287,14 @@ export const uploadsApi = {
 // Helper function for authenticated API requests
 export const fetchWithAuth = async (endpoint: string, options: RequestInit = {}): Promise<Response> => {
   const token = localStorage.getItem('authToken');
-  
+
   const headers = new Headers(options.headers || {});
   headers.set('Content-Type', 'application/json');
-  
+
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);
   }
-  
+
   return fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
     headers
@@ -293,12 +317,12 @@ export const reviewsApi = {
       },
       body: JSON.stringify(data)
     });
-    
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
     }
-    
+
     return response.json();
   },
   updateReview: (reviewId: string, data: any, token: string) => fetch(`${API_BASE_URL}/reviews/${reviewId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify(data) }).then(r => r.json()),

@@ -1,6 +1,7 @@
 // Hook to fetch user progress and statistics
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+const API_BASE_URL = 'http://localhost:5001/api';
 
 interface UserStats {
   totalCourses: number;
@@ -49,7 +50,7 @@ export const useUserStats = () => {
       try {
         setLoading(true);
         const token = localStorage.getItem('authToken');
-        
+
         // Fetch user courses and progress
         const coursesResponse = await fetch('http://localhost:5001/api/courses', {
           headers: {
@@ -58,14 +59,14 @@ export const useUserStats = () => {
         });
 
         // Fetch user's enrolled courses and progress
-        const dashboardResponse = await fetch('`${API_BASE_URL}/users/dashboard', {
+        const dashboardResponse = await fetch(`${API_BASE_URL}/users/dashboard`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
         });
 
         // Fetch user achievements
-        const achievementsResponse = await fetch('`${API_BASE_URL}/achievements/user', {
+        const achievementsResponse = await fetch(`${API_BASE_URL}/achievements/user`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -84,12 +85,12 @@ export const useUserStats = () => {
           const dashboardData = await dashboardResponse.json();
           if (dashboardData.enrolledCourses) {
             totalCourses = dashboardData.enrolledCourses.length;
-            completedCourses = dashboardData.enrolledCourses.filter((course: any) => 
+            completedCourses = dashboardData.enrolledCourses.filter((course: any) =>
               course.progress === 100 || course.completed
             ).length;
-            
+
             // Calculate overall progress
-            const totalProgress = dashboardData.enrolledCourses.reduce((sum: number, course: any) => 
+            const totalProgress = dashboardData.enrolledCourses.reduce((sum: number, course: any) =>
               sum + (course.progress || 0), 0
             );
             overallProgress = totalCourses > 0 ? Math.round(totalProgress / totalCourses) : 0;
@@ -145,7 +146,7 @@ export const useUserStats = () => {
       } catch (error) {
         console.error('Error fetching user stats:', error);
         setError('Failed to load user statistics');
-        
+
         // Fallback to demo data if API fails
         setStats({
           totalCourses: 12,

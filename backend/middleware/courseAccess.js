@@ -1,4 +1,3 @@
-const Payment = require('../models/Payment');
 const Course = require('../models/Course');
 
 // Middleware to check if user has paid for a course or if course is free
@@ -23,24 +22,22 @@ const checkCourseAccess = async (req, res, next) => {
       return next();
     }
 
-    // For paid courses, check payment status
-    const payment = await Payment.findOne({
-      userId: userId,
-      courseId: courseId,
-      status: 'paid'
-    });
+    // For paid courses, rely on enrollment rather than payment records
+    const enrollment = course.enrolledStudents.find(
+      student => student.student.toString() === userId.toString()
+    );
 
-    if (payment) {
+    if (enrollment) {
       req.courseAccess = {
         hasAccess: true,
         isFree: false,
-        hasPaid: true,
-        paymentId: payment._id
+        hasPaid: false,
+        enrollment: enrollment
       };
       return next();
     }
 
-    // User hasn't paid for the course
+    // User is not enrolled
     req.courseAccess = {
       hasAccess: false,
       isFree: false,
@@ -48,8 +45,8 @@ const checkCourseAccess = async (req, res, next) => {
     };
 
     return res.status(403).json({ 
-      message: 'Payment required to access this course',
-      requiresPayment: true,
+      message: 'Enrollment required to access this course',
+      requiresEnrollment: true,
       coursePrice: course.price
     });
 
@@ -94,28 +91,20 @@ const checkContentAccess = async (req, res, next) => {
       return next();
     }
 
-    // For paid courses, check payment status
-    const payment = await Payment.findOne({
-      userId: userId,
-      courseId: courseId,
-      status: 'paid'
-    });
-
-    if (payment) {
+    // For paid courses, allow access only if enrolled
+    if (enrollment) {
       req.courseAccess = {
         hasAccess: true,
         isFree: false,
-        hasPaid: true,
-        paymentId: payment._id,
+        hasPaid: false,
         enrollment: enrollment
       };
       return next();
     }
 
-    // User is enrolled but hasn't paid
     return res.status(403).json({ 
-      message: 'Payment required to access course content',
-      requiresPayment: true,
+      message: 'Enrollment required to access course content',
+      requiresEnrollment: true,
       coursePrice: course.price
     });
 
@@ -230,22 +219,17 @@ const checkPaymentStatus = async (userId, courseId) => {
       };
     }
 
-    const payment = await Payment.findOne({
-      userId: userId,
-      courseId: courseId,
-      status: 'paid'
-    });
+    // Rely on enrollment status instead of payment records
+    const enrollmentRecord = course.enrolledStudents.find(
+      student => student.student.toString() === userId.toString()
+    );
 
     return {
       isFree: false,
-      hasPaid: !!payment,
-      hasAccess: !!payment,
+      hasPaid: false,
+      hasAccess: !!enrollmentRecord,
       coursePrice: course.price,
-      paymentDetails: payment ? {
-        paymentId: payment._id,
-        paidAt: payment.paidAt,
-        amount: payment.amount
-      } : null
+      paymentDetails: null
     };
 
   } catch (error) {

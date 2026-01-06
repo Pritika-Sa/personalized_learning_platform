@@ -13,22 +13,22 @@ connectDB();
 app.set('trust proxy', 1);
 
 // CORS Configuration
-const corsOrigins = process.env.NODE_ENV === 'production' 
+const corsOrigins = process.env.NODE_ENV === 'production'
   ? [
-      'https://arivom.onrender.com',
-      'https://arivom-frontend.onrender.com',
-      'https://arivom.netlify.app',
-      'https://arivom.vercel.app',
-      process.env.FRONTEND_URL
-    ].filter(Boolean)
+    'https://arivom.onrender.com',
+    'https://arivom-frontend.onrender.com',
+    'https://arivom.netlify.app',
+    'https://arivom.vercel.app',
+    process.env.FRONTEND_URL
+  ].filter(Boolean)
   : [
-      'http://localhost:5173', 
-      'http://localhost:5174', 
-      'http://localhost:5175', 
-      'http://localhost:5176',
-      'http://localhost:3000',
-      'http://127.0.0.1:5173'
-    ];
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://localhost:5175',
+    'http://localhost:5176',
+    'http://localhost:3000',
+    'http://127.0.0.1:5173'
+  ];
 
 console.log('CORS Origins:', corsOrigins);
 console.log('NODE_ENV:', process.env.NODE_ENV);
@@ -38,31 +38,31 @@ console.log('FRONTEND_URL:', process.env.FRONTEND_URL);
 app.use(cors({
   origin: function (origin, callback) {
     console.log('Request origin:', origin);
-    
+
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) {
       console.log('No origin - allowed');
       return callback(null, true);
     }
-    
+
     // Check if the origin is in our allowed list
     if (corsOrigins.includes(origin)) {
       console.log('Origin allowed:', origin);
       return callback(null, true);
     }
-    
+
     // For production, also allow any onrender.com subdomain as fallback
     if (process.env.NODE_ENV === 'production' && origin.includes('.onrender.com')) {
       console.log('Onrender subdomain allowed:', origin);
       return callback(null, true);
     }
-    
+
     // Temporary: Allow the specific frontend URL if not in production
     if (origin === 'https://arivom.onrender.com') {
       console.log('Frontend URL specifically allowed:', origin);
       return callback(null, true);
     }
-    
+
     console.log('CORS blocked origin:', origin);
     console.log('Available origins:', corsOrigins);
     callback(null, true); // Temporarily allow all origins for debugging
@@ -70,8 +70,8 @@ app.use(cors({
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: [
-    'Content-Type', 
-    'Authorization', 
+    'Content-Type',
+    'Authorization',
     'X-Requested-With',
     'Accept',
     'Origin',
@@ -89,11 +89,11 @@ app.use((req, res, next) => {
   res.header('X-Content-Type-Options', 'nosniff');
   res.header('X-Frame-Options', 'DENY');
   res.header('X-XSS-Protection', '1; mode=block');
-  
+
   if (process.env.NODE_ENV === 'production') {
     res.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   }
-  
+
   next();
 });
 
@@ -104,7 +104,6 @@ app.set('trust proxy', 1);
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));
-app.use('/api/auth', require('./routes/authOTP')); // OTP authentication routes
 app.use('/api/users', require('./routes/users'));
 app.use('/api/users/profile', require('./routes/userProfile')); // User profile management
 app.use('/api/videos', require('./routes/videos'));
@@ -116,18 +115,18 @@ app.use('/api/certificates', require('./routes/certificates'));
 app.use('/api/assessments', require('./routes/assessments'));
 app.use('/api/reviews', require('./routes/reviews'));
 app.use('/api/achievements', require('./routes/achievements'));
-app.use('/api/payments', require('./routes/payments'));
 app.use('/api/debug', require('./routes/debug'));
 app.use('/api/learning', require('./routes/learning'));
+app.use('/api/copilot', require('./routes/copilot')); // Learning Copilot endpoints
 app.use('/api/peers', require('./routes/peers'));
 app.use('/api/career', require('./routes/career'));
 app.use('/api/recommendations', require('./routes/recommendations'));
-app.use('/api/chat', require('./routes/chat-ultra-simple')); // Ultra simple chat
+app.use('/api/chat', require('./routes/chat'));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
+  res.json({
+    status: 'OK',
     timestamp: new Date().toISOString(),
     database: 'Connected',
     environment: process.env.NODE_ENV || 'development',
@@ -151,7 +150,7 @@ app.get('/api/cors-test', (req, res) => {
 
 // Root endpoint
 app.get('/', (req, res) => {
-  res.json({ 
+  res.json({
     message: 'Arivom Learning Platform API',
     status: 'Running',
     version: '1.0.0',
@@ -165,7 +164,7 @@ app.use((err, req, res, next) => {
   console.error('💥 Express Error Handler Triggered:');
   console.error('Error message:', err.message);
   console.error('Error stack:', err.stack);
-  res.status(500).json({ 
+  res.status(500).json({
     message: 'Something went wrong!',
     error: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
   });

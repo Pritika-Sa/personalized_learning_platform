@@ -1,0 +1,43 @@
+ARIVOM LEARNING PLATFORM - EXISTING FEATURES SUMMARY
+
+1. STUDENT LEARNING EXPERIENCE
+-------------------------------
+* Authentication & Profiles: Secure Login/Register flow with role-based access and personalized profile management.
+* Course Discovery: Modern homepage with featured courses, a centralized "All Courses" catalog, and intelligent category filtering.
+* Course Detail: Premium interface showing course objectives, skills to learn, instructor details, and a dynamic progress bar.
+* Video Learning: Integrated video player with lesson tracking, "mark as complete" functionality, and seamless navigation between modules.
+* Handmade Assessments: Topic-specific quizzes designed by instructors with automatic grading and passing score validation.
+* Certification: Instant certificate generation upon meeting course completion criteria.
+* Student Dashboard: central hub to track enrolled courses, overall progress, and earned certificates.
+* Achievements System: Gamified learning with badges and milestones to track student accomplishments.
+* Career Hub & Recommendations: AI-driven career guidance and course suggestions based on user interests.
+
+2. ADVANCED AI MENTORSHIP (AGENTIC & RAG)
+------------------------------------------
+* Learning Copilot: A sidebar AI assistant available during course viewing for instant Q&A.
+* Agentic Learning Agent: A "Think-Act-Evaluate" AI loop that creates personalized study plans and adapts based on student performance.
+* RAG (Retrieval-Augmented Generation): Semantic Vector Search using Gemini embeddings to answer questions directly from uploaded PDF textbooks and lecture notes.
+* Adaptive AI Quizzes: Dynamically generated quizzes that citation-source their feedback and adjust difficulty based on student mastery levels.
+* Cited Feedback: AI explains correct/incorrect answers by referencing specific parts of the course material.
+* Suggested Next Steps: The AI proactively suggests the most effective next topic or review task after every interaction.
+
+3. INSTRUCTOR & ADMIN TOOLS
+----------------------------
+* Course Management Dashboard: Full CRUD operations for courses, including title, description, pricing, and thumbnail management.
+* Syllabus Builder: Interface to add, order, and manage course videos and modules.
+* AI Material Ingestion: Direct PDF upload tool for instructors to "feed" the AI Copilot with textbooks and notes.
+* Assessment Manager: Tools to create handmade quizzes or trigger AI-assisted assessment generation.
+* Course Analytics: Backend metrics for tracking student interaction latency, syllabus coverage, and mastery improvements.
+
+4. COLLABORATIVE & SOCIAL FEATURES
+----------------------------------
+* Peer Learning: Dedicated space for collaborative study and student interaction.
+* Ratings & Reviews: comprehensive system for students to rate courses and leave detailed feedback for others.
+
+5. TECHNOLOGY STACK
+-------------------
+* Frontend: React (Vite), Lucide-React for icons, Tailwind CSS for premium UI components.
+* Backend: Node.js & Express with a secure REST API architecture.
+* Database: MongoDB & Mongoose for scalable user and course data management.
+* AI Engine: Google Gemini 1.5 Flash for agentic reasoning and Text-Embedding-004 for vector search.
+* File Processing: PDF-parse for material indexing and Multer for secure file uploads.

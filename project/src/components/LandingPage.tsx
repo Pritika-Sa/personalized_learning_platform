@@ -93,25 +93,34 @@ export default function LandingPage({ onLoginSuccess, onNavigateToOtp }: Landing
     const timeoutId = setTimeout(() => controller.abort(), 12000);
     
     try {
-      const response = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.AUTH.SIGNUP_REQUEST_OTP), {
+      // Call backend register endpoint directly (OTP removed)
+      const payload = {
+        username: signupData.email.trim().split('@')[0],
+        firstName: signupData.firstName.trim(),
+        lastName: signupData.lastName.trim(),
+        email: signupData.email.trim(),
+        password: signupData.password,
+        // provide minimal defaults for optional fields
+        // backend requires at least one skill, send a default if none selected
+        skills: ['general'],
+        interests: '',
+        careerObjective: ''
+      };
+
+      const response = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.AUTH.REGISTER), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: signupData.firstName.trim(),
-          lastName: signupData.lastName.trim(),
-          email: signupData.email.trim(),
-          phone: signupData.phone.trim(),
-          password: signupData.password,
-          confirmPassword: signupData.confirmPassword
-        }),
+        body: JSON.stringify(payload),
         signal: controller.signal
       });
 
-      let data: any = {};
-      try { data = await response.json(); } catch {}
+      const data: any = await response.json().catch(() => ({}));
 
       if (response.ok) {
-        onNavigateToOtp(signupData.email.trim(), true);
+        // Store token and user, then proceed
+        if (data.token) localStorage.setItem('authToken', data.token);
+        if (data.user) localStorage.setItem('user', JSON.stringify(data.user));
+        onLoginSuccess();
       } else {
         setError(data?.message || `Signup failed (${response.status})`);
       }

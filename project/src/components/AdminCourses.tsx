@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { coursesApi, uploadsApi } from '../services/apiService';
 import { Plus, Trash2, Save, XCircle, FileText, Award, Users, BookOpen, TrendingUp, DollarSign, BarChart3, Settings, Home, PlusCircle, Edit, Search, ArrowUpRight, Clock, LogOut, User, Crown } from 'lucide-react';
+import MaterialUpload from './MaterialUpload';
 
 const levels = ['Beginner', 'Intermediate', 'Advanced'];
 
@@ -214,20 +215,20 @@ const AdminCourses: React.FC = () => {
           passingScore: assessment.passingScore
         })) : []
       };
-      
+
       console.log('Creating course with payload:', payload);
       const created = await coursesApi.create(payload, token);
       setCourses([created, ...courses]);
-      setForm({ 
-        title: '', 
-        description: '', 
-        category: '', 
-        level: 'Beginner', 
+      setForm({
+        title: '',
+        description: '',
+        category: '',
+        level: 'Beginner',
         price: 0,
-        thumbnail: '', 
-        tags: '', 
-        isPublished: false, 
-        instructorName: '', 
+        thumbnail: '',
+        tags: '',
+        isPublished: false,
+        instructorName: '',
         videos: [],
         assessmentMode: 'handmade',
         assessments: [],
@@ -237,13 +238,13 @@ const AdminCourses: React.FC = () => {
     } catch (e) {
       console.error('Course creation error:', e);
       let errorMessage = 'Failed to create course';
-      
+
       if (e instanceof Error && e.message) {
         errorMessage = e.message;
       } else if (typeof e === 'object' && e !== null && 'errors' in e && Array.isArray((e as any).errors)) {
         errorMessage = ((e as any).errors as string[]).join(', ');
       }
-      
+
       alert(`Error: ${errorMessage}`);
     } finally { setLoading(false); }
   };
@@ -258,11 +259,11 @@ const AdminCourses: React.FC = () => {
   // Filter courses based on search and filters
   const filteredCourses = courses.filter(course => {
     const matchesSearch = course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         course.category.toLowerCase().includes(searchTerm.toLowerCase());
+      course.category.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesLevel = filterLevel === 'all' || course.level === filterLevel;
-    const matchesPublished = filterPublished === 'all' || 
-                           (filterPublished === 'published' && course.isPublished) ||
-                           (filterPublished === 'draft' && !course.isPublished);
+    const matchesPublished = filterPublished === 'all' ||
+      (filterPublished === 'published' && course.isPublished) ||
+      (filterPublished === 'draft' && !course.isPublished);
     return matchesSearch && matchesLevel && matchesPublished;
   });
 
@@ -293,10 +294,10 @@ const AdminCourses: React.FC = () => {
                 <p className="text-sm text-gray-600 dark:text-gray-400">Manage your courses and content</p>
               </div>
             </div>
-            
+
             {/* Quick Actions */}
             <div className="flex items-center space-x-3">
-              <button 
+              <button
                 onClick={() => setActiveTab('create')}
                 className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl"
               >
@@ -329,7 +330,7 @@ const AdminCourses: React.FC = () => {
                   </div>
 
                   {/* Logout Button */}
-                  <button 
+                  <button
                     onClick={() => {
                       localStorage.removeItem('authToken');
                       window.location.href = '/';
@@ -427,11 +428,10 @@ const AdminCourses: React.FC = () => {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center space-x-2 px-6 py-3 rounded-xl font-medium text-sm transition-all duration-200 ${
-                  activeTab === tab.id
-                    ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
-                }`}
+                className={`flex items-center space-x-2 px-6 py-3 rounded-xl font-medium text-sm transition-all duration-200 ${activeTab === tab.id
+                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
+                  }`}
               >
                 <tab.icon className="w-4 h-4" />
                 <span>{tab.label}</span>
@@ -500,11 +500,10 @@ const AdminCourses: React.FC = () => {
                         </h3>
                         <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{course.category}</p>
                       </div>
-                      <div className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        course.isPublished 
-                          ? 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300' 
-                          : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300'
-                      }`}>
+                      <div className={`px-3 py-1 rounded-full text-xs font-medium ${course.isPublished
+                        ? 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300'
+                        : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300'
+                        }`}>
                         {course.isPublished ? 'Published' : 'Draft'}
                       </div>
                     </div>
@@ -530,11 +529,10 @@ const AdminCourses: React.FC = () => {
                     {/* Course Details */}
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center space-x-4">
-                        <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
-                          course.level === 'Beginner' ? 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300' :
+                        <span className={`px-2 py-1 rounded-lg text-xs font-medium ${course.level === 'Beginner' ? 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300' :
                           course.level === 'Intermediate' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300' :
-                          'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300'
-                        }`}>
+                            'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300'
+                          }`}>
                           {course.level}
                         </span>
                         <div className="flex items-center space-x-1">
@@ -553,11 +551,10 @@ const AdminCourses: React.FC = () => {
                     <div className="flex gap-2">
                       <button
                         onClick={() => togglePublish(course._id, course.isPublished)}
-                        className={`flex-1 px-4 py-2 rounded-xl font-medium text-sm transition-all duration-200 ${
-                          course.isPublished
-                            ? 'bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/50 dark:text-red-300 dark:hover:bg-red-900/70'
-                            : 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-300 dark:hover:bg-green-900/70'
-                        }`}
+                        className={`flex-1 px-4 py-2 rounded-xl font-medium text-sm transition-all duration-200 ${course.isPublished
+                          ? 'bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/50 dark:text-red-300 dark:hover:bg-red-900/70'
+                          : 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-300 dark:hover:bg-green-900/70'
+                          }`}
                       >
                         {course.isPublished ? 'Unpublish' : 'Publish'}
                       </button>
@@ -587,7 +584,7 @@ const AdminCourses: React.FC = () => {
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Create New Course</h2>
               <p className="text-gray-600 dark:text-gray-400 mt-1">Fill in the details to create a comprehensive course</p>
             </div>
-            
+
             <div className="p-6">
               {/* Basic Information Section */}
               <div className="mb-8">
@@ -598,86 +595,86 @@ const AdminCourses: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">Course Title *</label>
-                    <input 
-                      className="w-full px-4 py-3 bg-white/50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
-                      placeholder="Enter an engaging course title" 
-                      value={form.title} 
-                      onChange={e=>setForm({...form,title:e.target.value})} 
+                    <input
+                      className="w-full px-4 py-3 bg-white/50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                      placeholder="Enter an engaging course title"
+                      value={form.title}
+                      onChange={e => setForm({ ...form, title: e.target.value })}
                     />
                   </div>
 
                   <div className="space-y-2">
                     <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">Category *</label>
-                    <input 
-                      className="w-full px-4 py-3 bg-white/50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
-                      placeholder="e.g., Programming, Design, Business" 
-                      value={form.category} 
-                      onChange={e=>setForm({...form,category:e.target.value})} 
+                    <input
+                      className="w-full px-4 py-3 bg-white/50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                      placeholder="e.g., Programming, Design, Business"
+                      value={form.category}
+                      onChange={e => setForm({ ...form, category: e.target.value })}
                     />
                   </div>
 
                   <div className="space-y-2">
                     <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">Difficulty Level</label>
-                    <select 
-                      className="w-full px-4 py-3 bg-white/50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
-                      value={form.level} 
-                      onChange={e=>setForm({...form,level:e.target.value})}
+                    <select
+                      className="w-full px-4 py-3 bg-white/50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                      value={form.level}
+                      onChange={e => setForm({ ...form, level: e.target.value })}
                     >
-                      {levels.map(l=> <option key={l} value={l}>{l}</option>)}
+                      {levels.map(l => <option key={l} value={l}>{l}</option>)}
                     </select>
                   </div>
 
                   <div className="space-y-2">
                     <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">Price (₹)</label>
-                    <input 
-                      type="number" 
-                      className="w-full px-4 py-3 bg-white/50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
-                      placeholder="0 for free course" 
-                      value={form.price} 
+                    <input
+                      type="number"
+                      className="w-full px-4 py-3 bg-white/50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                      placeholder="0 for free course"
+                      value={form.price}
                       min="0"
-                      onChange={e=>setForm({...form,price:Number(e.target.value)})} 
+                      onChange={e => setForm({ ...form, price: Number(e.target.value) })}
                     />
                     <p className="text-xs text-gray-500 dark:text-gray-400">Enter 0 to make the course free</p>
                   </div>
 
                   <div className="space-y-2">
                     <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">Thumbnail URL</label>
-                    <input 
-                      className="w-full px-4 py-3 bg-white/50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
-                      placeholder="https://example.com/thumbnail.jpg" 
-                      value={form.thumbnail} 
-                      onChange={e=>setForm({...form,thumbnail:e.target.value})} 
+                    <input
+                      className="w-full px-4 py-3 bg-white/50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                      placeholder="https://example.com/thumbnail.jpg"
+                      value={form.thumbnail}
+                      onChange={e => setForm({ ...form, thumbnail: e.target.value })}
                     />
                   </div>
 
                   <div className="space-y-2">
                     <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">Instructor Name</label>
-                    <input 
-                      className="w-full px-4 py-3 bg-white/50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
-                      placeholder="Enter instructor name" 
-                      value={form.instructorName} 
-                      onChange={e=>setForm({...form,instructorName:e.target.value})} 
+                    <input
+                      className="w-full px-4 py-3 bg-white/50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                      placeholder="Enter instructor name"
+                      value={form.instructorName}
+                      onChange={e => setForm({ ...form, instructorName: e.target.value })}
                     />
                   </div>
 
                   <div className="md:col-span-2 space-y-2">
                     <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">Tags</label>
-                    <input 
-                      className="w-full px-4 py-3 bg-white/50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200" 
-                      placeholder="javascript, react, frontend (comma separated)" 
-                      value={form.tags} 
-                      onChange={e=>setForm({...form,tags:e.target.value})} 
+                    <input
+                      className="w-full px-4 py-3 bg-white/50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                      placeholder="javascript, react, frontend (comma separated)"
+                      value={form.tags}
+                      onChange={e => setForm({ ...form, tags: e.target.value })}
                     />
                   </div>
 
                   <div className="md:col-span-2 space-y-2">
                     <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">Course Description *</label>
-                    <textarea 
-                      className="w-full px-4 py-3 bg-white/50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none" 
-                      rows={4} 
-                      placeholder="Provide a detailed description of what students will learn in this course..." 
-                      value={form.description} 
-                      onChange={e=>setForm({...form,description:e.target.value})} 
+                    <textarea
+                      className="w-full px-4 py-3 bg-white/50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none"
+                      rows={4}
+                      placeholder="Provide a detailed description of what students will learn in this course..."
+                      value={form.description}
+                      onChange={e => setForm({ ...form, description: e.target.value })}
                     />
                   </div>
                 </div>
@@ -691,11 +688,11 @@ const AdminCourses: React.FC = () => {
                 </h3>
                 <div className="flex items-center justify-between mb-4">
                   <p className="text-sm text-gray-600 dark:text-gray-400">Add video content for your course</p>
-                  <button 
-                    onClick={addVideo} 
+                  <button
+                    onClick={addVideo}
                     className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl"
                   >
-                    <Plus className="w-4 h-4"/>
+                    <Plus className="w-4 h-4" />
                     <span>Add Video</span>
                   </button>
                 </div>
@@ -712,76 +709,76 @@ const AdminCourses: React.FC = () => {
                         <div className="flex items-center justify-between mb-4">
                           <h4 className="font-semibold text-gray-900 dark:text-white">Video {idx + 1}</h4>
                           <div className="flex items-center space-x-2">
-                            <button 
-                              onClick={()=>moveVideo(idx,-1)} 
+                            <button
+                              onClick={() => moveVideo(idx, -1)}
                               disabled={idx === 0}
                               className="p-2 bg-blue-100 text-blue-600 hover:bg-blue-200 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
                             >
                               ↑
                             </button>
-                            <button 
-                              onClick={()=>moveVideo(idx,1)} 
+                            <button
+                              onClick={() => moveVideo(idx, 1)}
                               disabled={idx === form.videos.length - 1}
                               className="p-2 bg-blue-100 text-blue-600 hover:bg-blue-200 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
                             >
                               ↓
                             </button>
-                            <button 
-                              onClick={()=>removeVideo(idx)} 
+                            <button
+                              onClick={() => removeVideo(idx)}
                               className="p-2 bg-red-100 text-red-600 hover:bg-red-200 rounded-lg transition-colors"
                             >
-                              <Trash2 className="w-4 h-4"/>
+                              <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
                         </div>
-                        
+
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                           <div className="space-y-2">
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Video Title</label>
-                            <input 
-                              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" 
-                              placeholder="Enter video title" 
-                              value={v.title} 
-                              onChange={e=>{const arr=[...form.videos];arr[idx].title=e.target.value;setForm({...form,videos:arr});}} 
+                            <input
+                              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                              placeholder="Enter video title"
+                              value={v.title}
+                              onChange={e => { const arr = [...form.videos]; arr[idx].title = e.target.value; setForm({ ...form, videos: arr }); }}
                             />
                           </div>
                           <div className="space-y-2">
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Duration (seconds)</label>
-                            <input 
-                              type="number" 
-                              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" 
-                              placeholder="e.g., 300" 
-                              value={v.duration} 
-                              onChange={e=>{const arr=[...form.videos];arr[idx].duration=Number(e.target.value);setForm({...form,videos:arr});}} 
+                            <input
+                              type="number"
+                              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                              placeholder="e.g., 300"
+                              value={v.duration}
+                              onChange={e => { const arr = [...form.videos]; arr[idx].duration = Number(e.target.value); setForm({ ...form, videos: arr }); }}
                             />
                           </div>
                           <div className="space-y-2">
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Video URL</label>
-                            <input 
-                              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" 
-                              placeholder="https://example.com/video.mp4" 
-                              value={v.url} 
-                              onChange={e=>{const arr=[...form.videos];arr[idx].url=e.target.value;setForm({...form,videos:arr});}} 
+                            <input
+                              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                              placeholder="https://example.com/video.mp4"
+                              value={v.url}
+                              onChange={e => { const arr = [...form.videos]; arr[idx].url = e.target.value; setForm({ ...form, videos: arr }); }}
                             />
                           </div>
                           <div className="space-y-2">
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Thumbnail URL</label>
-                            <input 
-                              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" 
-                              placeholder="https://example.com/thumb.jpg" 
-                              value={v.thumbnail} 
-                              onChange={e=>{const arr=[...form.videos];arr[idx].thumbnail=e.target.value;setForm({...form,videos:arr});}} 
+                            <input
+                              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                              placeholder="https://example.com/thumb.jpg"
+                              value={v.thumbnail}
+                              onChange={e => { const arr = [...form.videos]; arr[idx].thumbnail = e.target.value; setForm({ ...form, videos: arr }); }}
                             />
                           </div>
                         </div>
-                        
+
                         <div className="border-t border-gray-200 dark:border-gray-600 pt-4">
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Upload Video File</label>
-                          <input 
-                            type="file" 
-                            accept="video/*" 
+                          <input
+                            type="file"
+                            accept="video/*"
                             className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                            onChange={async (e)=>{
+                            onChange={async (e) => {
                               const file = e.target.files?.[0];
                               if (!file) return;
                               try {
@@ -793,7 +790,7 @@ const AdminCourses: React.FC = () => {
                               } catch {
                                 alert('Upload failed. Please try again.');
                               }
-                            }} 
+                            }}
                           />
                         </div>
                       </div>
@@ -810,11 +807,11 @@ const AdminCourses: React.FC = () => {
                 </h3>
                 <div className="flex items-center justify-between mb-4">
                   <p className="text-sm text-gray-600 dark:text-gray-400">Create assessments to test student knowledge</p>
-                  <button 
-                    onClick={addAssessment} 
+                  <button
+                    onClick={addAssessment}
                     className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl"
                   >
-                    <Plus className="w-4 h-4"/>
+                    <Plus className="w-4 h-4" />
                     <span>Add Assessment</span>
                   </button>
                 </div>
@@ -823,11 +820,11 @@ const AdminCourses: React.FC = () => {
                     <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-3">Assessment Mode</h4>
                     <div className="space-y-3">
                       <label className="flex items-center space-x-3 cursor-pointer">
-                        <input 
-                          type="radio" 
-                          name="assessmentMode" 
-                          checked={form.assessmentMode==='handmade'} 
-                          onChange={()=>setForm({...form, assessmentMode:'handmade'})}
+                        <input
+                          type="radio"
+                          name="assessmentMode"
+                          checked={form.assessmentMode === 'handmade'}
+                          onChange={() => setForm({ ...form, assessmentMode: 'handmade' })}
                           className="w-4 h-4 text-blue-600 focus:ring-blue-500 focus:ring-2"
                         />
                         <div>
@@ -836,11 +833,11 @@ const AdminCourses: React.FC = () => {
                         </div>
                       </label>
                       <label className="flex items-center space-x-3 cursor-pointer">
-                        <input 
-                          type="radio" 
-                          name="assessmentMode" 
-                          checked={form.assessmentMode==='auto'} 
-                          onChange={()=>setForm({...form, assessmentMode:'auto'})}
+                        <input
+                          type="radio"
+                          name="assessmentMode"
+                          checked={form.assessmentMode === 'auto'}
+                          onChange={() => setForm({ ...form, assessmentMode: 'auto' })}
                           className="w-4 h-4 text-blue-600 focus:ring-blue-500 focus:ring-2"
                         />
                         <div>
@@ -864,44 +861,44 @@ const AdminCourses: React.FC = () => {
                         <div key={assessmentIdx} className="bg-gray-50 dark:bg-gray-800/30 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
                           <div className="flex items-center justify-between mb-4">
                             <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Assessment {assessmentIdx + 1}</h4>
-                            <button 
-                              onClick={() => removeAssessment(assessmentIdx)} 
+                            <button
+                              onClick={() => removeAssessment(assessmentIdx)}
                               className="p-2 bg-red-100 text-red-600 hover:bg-red-200 rounded-lg transition-colors"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
-                          
+
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                             <div className="space-y-2">
                               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Assessment Title</label>
-                              <input 
-                                className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" 
-                                placeholder="e.g., Chapter 1 Quiz" 
-                                value={assessment.title} 
-                                onChange={(e) => updateAssessment(assessmentIdx, 'title', e.target.value)} 
+                              <input
+                                className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                                placeholder="e.g., Chapter 1 Quiz"
+                                value={assessment.title}
+                                onChange={(e) => updateAssessment(assessmentIdx, 'title', e.target.value)}
                               />
                             </div>
                             <div className="space-y-2">
                               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Passing Score (%)</label>
-                              <input 
-                                type="number" 
-                                min="0" 
+                              <input
+                                type="number"
+                                min="0"
                                 max="100"
-                                className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" 
-                                placeholder="70" 
-                                value={assessment.passingScore} 
-                                onChange={(e) => updateAssessment(assessmentIdx, 'passingScore', Number(e.target.value))} 
+                                className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                                placeholder="70"
+                                value={assessment.passingScore}
+                                onChange={(e) => updateAssessment(assessmentIdx, 'passingScore', Number(e.target.value))}
                               />
                             </div>
                             <div className="md:col-span-2 space-y-2">
                               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Assessment Description</label>
-                              <textarea 
-                                className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 resize-none" 
+                              <textarea
+                                className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
                                 rows={3}
-                                placeholder="Describe what this assessment covers..." 
-                                value={assessment.description} 
-                                onChange={(e) => updateAssessment(assessmentIdx, 'description', e.target.value)} 
+                                placeholder="Describe what this assessment covers..."
+                                value={assessment.description}
+                                onChange={(e) => updateAssessment(assessmentIdx, 'description', e.target.value)}
                               />
                             </div>
                           </div>
@@ -910,15 +907,15 @@ const AdminCourses: React.FC = () => {
                           <div className="border-t border-gray-200 dark:border-gray-600 pt-6">
                             <div className="flex items-center justify-between mb-4">
                               <h5 className="font-semibold text-gray-900 dark:text-white">Questions ({assessment.questions.length})</h5>
-                              <button 
-                                onClick={() => addQuestion(assessmentIdx)} 
+                              <button
+                                onClick={() => addQuestion(assessmentIdx)}
                                 className="flex items-center space-x-2 px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors text-sm"
                               >
                                 <Plus className="w-4 h-4" />
                                 <span>Add Question</span>
                               </button>
                             </div>
-                            
+
                             {assessment.questions.length === 0 ? (
                               <div className="text-center py-6 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600">
                                 <p className="text-gray-500 dark:text-gray-400 text-sm">No questions added yet</p>
@@ -929,61 +926,61 @@ const AdminCourses: React.FC = () => {
                                   <div key={questionIdx} className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
                                     <div className="flex items-center justify-between mb-3">
                                       <span className="text-sm font-semibold text-gray-900 dark:text-white">Question {questionIdx + 1}</span>
-                                      <button 
-                                        onClick={() => removeQuestion(assessmentIdx, questionIdx)} 
+                                      <button
+                                        onClick={() => removeQuestion(assessmentIdx, questionIdx)}
                                         className="text-red-600 hover:text-red-800 text-sm font-medium"
                                       >
                                         Remove
                                       </button>
                                     </div>
-                                    
+
                                     <div className="space-y-4">
                                       <div>
                                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Question</label>
-                                        <textarea 
-                                          className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" 
+                                        <textarea
+                                          className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                                           rows={2}
-                                          placeholder="Enter your question here..." 
-                                          value={question.question} 
-                                          onChange={(e) => updateQuestion(assessmentIdx, questionIdx, 'question', e.target.value)} 
+                                          placeholder="Enter your question here..."
+                                          value={question.question}
+                                          onChange={(e) => updateQuestion(assessmentIdx, questionIdx, 'question', e.target.value)}
                                         />
                                       </div>
-                                      
+
                                       <div>
                                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Answer Options</label>
                                         <div className="space-y-2">
                                           {question.options.map((option: string, optionIdx: number) => (
                                             <div key={optionIdx} className="flex items-center space-x-3">
-                                              <input 
-                                                type="radio" 
+                                              <input
+                                                type="radio"
                                                 name={`correct-${assessmentIdx}-${questionIdx}`}
                                                 checked={question.correctAnswer === optionIdx}
                                                 onChange={() => updateQuestion(assessmentIdx, questionIdx, 'correctAnswer', optionIdx)}
                                                 className="w-4 h-4 text-green-600 focus:ring-green-500"
                                               />
-                                              <input 
-                                                className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" 
-                                                placeholder={`Option ${optionIdx + 1}`} 
-                                                value={option} 
+                                              <input
+                                                className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                placeholder={`Option ${optionIdx + 1}`}
+                                                value={option}
                                                 onChange={(e) => {
                                                   const newOptions = [...question.options];
                                                   newOptions[optionIdx] = e.target.value;
                                                   updateQuestion(assessmentIdx, questionIdx, 'options', newOptions);
-                                                }} 
+                                                }}
                                               />
                                             </div>
                                           ))}
                                         </div>
                                       </div>
-                                      
+
                                       <div>
                                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Explanation (Optional)</label>
-                                        <textarea 
-                                          className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" 
+                                        <textarea
+                                          className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                                           rows={2}
-                                          placeholder="Explain why this is the correct answer..." 
-                                          value={question.explanation} 
-                                          onChange={(e) => updateQuestion(assessmentIdx, questionIdx, 'explanation', e.target.value)} 
+                                          placeholder="Explain why this is the correct answer..."
+                                          value={question.explanation}
+                                          onChange={(e) => updateQuestion(assessmentIdx, questionIdx, 'explanation', e.target.value)}
                                         />
                                       </div>
                                     </div>
@@ -1003,10 +1000,10 @@ const AdminCourses: React.FC = () => {
               <div className="border-t border-gray-200/50 dark:border-gray-700/50 pt-6">
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                   <label className="flex items-center space-x-3 cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      checked={form.isPublished} 
-                      onChange={e=>setForm({...form,isPublished:e.target.checked})}
+                    <input
+                      type="checkbox"
+                      checked={form.isPublished}
+                      onChange={e => setForm({ ...form, isPublished: e.target.checked })}
                       className="w-4 h-4 text-blue-600 focus:ring-blue-500 focus:ring-2 rounded"
                     />
                     <div>
@@ -1014,14 +1011,14 @@ const AdminCourses: React.FC = () => {
                       <p className="text-xs text-gray-500 dark:text-gray-400">Make course available to students right away</p>
                     </div>
                   </label>
-                  
+
                   <div className="flex items-center space-x-3">
-                    <button 
+                    <button
                       type="button"
                       onClick={() => {
                         setForm({
-                          title: '', description: '', category: '', level: 'Beginner', price: 0, 
-                          thumbnail: '', tags: '', isPublished: false, instructorName: '', 
+                          title: '', description: '', category: '', level: 'Beginner', price: 0,
+                          thumbnail: '', tags: '', isPublished: false, instructorName: '',
                           videos: [], assessmentMode: 'handmade', assessments: []
                         });
                       }}
@@ -1029,9 +1026,9 @@ const AdminCourses: React.FC = () => {
                     >
                       Reset Form
                     </button>
-                    <button 
-                      disabled={loading} 
-                      onClick={createCourse} 
+                    <button
+                      disabled={loading}
+                      onClick={createCourse}
                       className="flex items-center space-x-2 px-8 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {loading ? (
@@ -1041,7 +1038,7 @@ const AdminCourses: React.FC = () => {
                         </>
                       ) : (
                         <>
-                          <Save className="w-4 h-4"/>
+                          <Save className="w-4 h-4" />
                           <span>Create Course</span>
                         </>
                       )}
@@ -1073,8 +1070,8 @@ const AdminCourses: React.FC = () => {
               <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-500 to-indigo-600">
                 <div className="flex items-center justify-between">
                   <h2 className="text-2xl font-bold text-white">Edit Course</h2>
-                  <button 
-                    onClick={handleEditModalClose} 
+                  <button
+                    onClick={handleEditModalClose}
                     className="p-2 hover:bg-white/20 rounded-xl transition-colors text-white"
                   >
                     <XCircle className="w-6 h-6" />
@@ -1088,29 +1085,29 @@ const AdminCourses: React.FC = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">Course Title</label>
-                      <input 
-                        name="title" 
-                        value={editForm.title || ''} 
-                        onChange={handleEditFormChange} 
-                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500" 
-                        required 
+                      <input
+                        name="title"
+                        value={editForm.title || ''}
+                        onChange={handleEditFormChange}
+                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
                       />
                     </div>
                     <div className="space-y-2">
                       <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">Category</label>
-                      <input 
-                        name="category" 
-                        value={editForm.category || ''} 
-                        onChange={handleEditFormChange} 
-                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                      <input
+                        name="category"
+                        value={editForm.category || ''}
+                        onChange={handleEditFormChange}
+                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                     <div className="space-y-2">
                       <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">Level</label>
-                      <select 
-                        name="level" 
-                        value={editForm.level || ''} 
-                        onChange={handleEditFormChange} 
+                      <select
+                        name="level"
+                        value={editForm.level || ''}
+                        onChange={handleEditFormChange}
                         className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
                         {levels.map(l => <option key={l} value={l}>{l}</option>)}
@@ -1118,72 +1115,76 @@ const AdminCourses: React.FC = () => {
                     </div>
                     <div className="space-y-2">
                       <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">Price (₹)</label>
-                      <input 
-                        type="number" 
-                        name="price" 
-                        value={editForm.price || 0} 
-                        onChange={handleEditFormChange} 
-                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                      <input
+                        type="number"
+                        name="price"
+                        value={editForm.price || 0}
+                        onChange={handleEditFormChange}
+                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                         min="0"
                       />
                     </div>
                     <div className="space-y-2">
                       <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">Thumbnail URL</label>
-                      <input 
-                        name="thumbnail" 
-                        value={editForm.thumbnail || ''} 
-                        onChange={handleEditFormChange} 
-                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                      <input
+                        name="thumbnail"
+                        value={editForm.thumbnail || ''}
+                        onChange={handleEditFormChange}
+                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                     <div className="space-y-2">
                       <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">Tags</label>
-                      <input 
-                        name="tags" 
-                        value={editForm.tags || ''} 
-                        onChange={handleEditFormChange} 
-                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                      <input
+                        name="tags"
+                        value={editForm.tags || ''}
+                        onChange={handleEditFormChange}
+                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="comma separated"
                       />
                     </div>
                     <div className="md:col-span-2 space-y-2">
                       <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">Description</label>
-                      <textarea 
-                        name="description" 
-                        value={editForm.description || ''} 
-                        onChange={handleEditFormChange} 
-                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" 
+                      <textarea
+                        name="description"
+                        value={editForm.description || ''}
+                        onChange={handleEditFormChange}
+                        className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                         rows={4}
                       />
                     </div>
                   </div>
 
                   <div className="flex items-center space-x-3">
-                    <input 
-                      type="checkbox" 
-                      name="isPublished" 
-                      checked={!!editForm.isPublished} 
+                    <input
+                      type="checkbox"
+                      name="isPublished"
+                      checked={!!editForm.isPublished}
                       onChange={e => setEditForm((prev: any) => ({ ...prev, isPublished: e.target.checked }))}
                       className="w-4 h-4 text-blue-600 focus:ring-blue-500 focus:ring-2 rounded"
                     />
                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Published</label>
                   </div>
                 </form>
+
+                <div className="mt-8 border-t border-gray-100 dark:border-gray-800 pt-8">
+                  <MaterialUpload courseId={editForm._id} />
+                </div>
               </div>
 
               {/* Modal Footer */}
               <div className="p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
                 <div className="flex justify-end space-x-3">
-                  <button 
-                    type="button" 
-                    onClick={handleEditModalClose} 
+                  <button
+                    type="button"
+                    onClick={handleEditModalClose}
                     className="px-6 py-3 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-medium transition-colors"
                   >
                     Cancel
                   </button>
-                  <button 
-                    onClick={handleEditFormSubmit} 
-                    disabled={editLoading} 
+                  <button
+                    onClick={handleEditFormSubmit}
+                    disabled={editLoading}
                     className="flex items-center space-x-2 px-8 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {editLoading ? (
@@ -1193,7 +1194,7 @@ const AdminCourses: React.FC = () => {
                       </>
                     ) : (
                       <>
-                        <Save className="w-4 h-4"/>
+                        <Save className="w-4 h-4" />
                         <span>Save Changes</span>
                       </>
                     )}

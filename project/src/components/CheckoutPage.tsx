@@ -3,12 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { ArrowLeft, CreditCard, Shield, Lock, Check, Loader2, AlertCircle } from 'lucide-react';
 
-declare global {
-  interface Window {
-    Razorpay: any;
-  }
-}
-
 interface Course {
   _id: string;
   title: string;
@@ -31,29 +25,12 @@ const CheckoutPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [razorpayLoaded, setRazorpayLoaded] = useState(false);
-  const [paymentStatus, setPaymentStatus] = useState<any>(null);
 
   useEffect(() => {
-    loadRazorpayScript();
     fetchCourse();
-    if (user && courseId) {
-      checkPaymentStatus();
-    }
   }, [courseId, user]);
 
-  const loadRazorpayScript = () => {
-    if (window.Razorpay) {
-      setRazorpayLoaded(true);
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    script.onload = () => setRazorpayLoaded(true);
-    script.onerror = () => setError('Failed to load payment system');
-    document.body.appendChild(script);
-  };
+  // Payment system removed. Enrollment is immediate.
 
   const fetchCourse = async () => {
     try {
@@ -73,153 +50,36 @@ const CheckoutPage: React.FC = () => {
     }
   };
 
-  const checkPaymentStatus = async () => {
-    if (!courseId || !user) return;
-
-    try {
-      const token = localStorage.getItem('authToken');
-      if (!token) return;
-
-      const response = await fetch(`http://localhost:5001/api/payments/status/${courseId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const status = await response.json();
-        setPaymentStatus(status);
-        
-        // If user has already paid, redirect to course page
-        if (status.hasPaid || status.isEnrolled) {
-          console.log('User has already paid for this course, redirecting...');
-          navigate(`/courses/${courseId}?message=already-enrolled`);
-          return;
-        }
-
-        // If course is free, redirect to course page  
-        if (status.isFree) {
-          console.log('Course is free, redirecting to course page...');
-          navigate(`/courses/${courseId}?message=free-course`);
-          return;
-        }
-      }
-    } catch (err) {
-      console.error('Error checking payment status:', err);
-      // Don't show error for payment status check, just continue
-    }
-  };
-
-  const handlePayment = async () => {
-    if (!course || !user || !razorpayLoaded) return;
-
+  const handleEnroll = async () => {
+    if (!course || !user) return;
     try {
       setPaymentLoading(true);
-      setError(null);
-
-      // Step 1: Create payment order
       const token = localStorage.getItem('authToken');
-      if (!token) {
-        throw new Error('Please log in to continue');
-      }
+      if (!token) throw new Error('Please log in to continue');
 
-      console.log('Creating payment order for course:', course._id);
-      
-      const orderResponse = await fetch('http://localhost:5001/api/payments/create-order', {
+      const response = await fetch(`http://localhost:5001/api/courses/${course._id}/enroll`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          courseId: course._id,
-          amount: course.price * 100 // Convert to paise
-        })
+        body: JSON.stringify({})
       });
 
-      if (!orderResponse.ok) {
-        const errorData = await orderResponse.json();
-        throw new Error(errorData.message || 'Failed to create payment order');
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.message || 'Failed to enroll');
       }
 
-      const orderData = await orderResponse.json();
-      console.log('Payment order created:', orderData);
-
-      // Step 2: Initialize Razorpay
-      const options = {
-        key: orderData.key,
-        amount: orderData.amount,
-        currency: orderData.currency,
-        name: 'Course Platform',
-        description: `Payment for ${course.title}`,
-        order_id: orderData.orderId,
-        image: course.thumbnail || '/logo.png',
-        handler: async (response: any) => {
-          console.log('Payment successful:', response);
-          await verifyPayment(response);
-        },
-        prefill: {
-          name: `${user.firstName} ${user.lastName}`,
-          email: user.email,
-          contact: ''
-        },
-        theme: {
-          color: '#3B82F6'
-        },
-        modal: {
-          ondismiss: () => {
-            console.log('Payment modal closed');
-            setPaymentLoading(false);
-          }
-        }
-      };
-
-      const razorpay = new window.Razorpay(options);
-      razorpay.open();
-
+      navigate(`/courses/${courseId}?enrolled=true`);
     } catch (err) {
-      console.error('Payment error:', err);
-      setError(err instanceof Error ? err.message : 'Payment failed');
-      setPaymentLoading(false);
-    }
-  };
-
-  const verifyPayment = async (paymentData: any) => {
-    try {
-      console.log('Verifying payment:', paymentData);
-      
-      const token = localStorage.getItem('authToken');
-      const response = await fetch('http://localhost:5001/api/payments/verify-payment', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          razorpay_order_id: paymentData.razorpay_order_id,
-          razorpay_payment_id: paymentData.razorpay_payment_id,
-          razorpay_signature: paymentData.razorpay_signature,
-          courseId: course?._id
-        })
-      });
-
-      const result = await response.json();
-      
-      if (response.ok && result.success) {
-        console.log('Payment verified successfully');
-        // Redirect to course page or success page
-        navigate(`/courses/${courseId}?payment=success`);
-      } else {
-        throw new Error(result.message || 'Payment verification failed');
-      }
-    } catch (err) {
-      console.error('Payment verification error:', err);
-      setError(err instanceof Error ? err.message : 'Payment verification failed');
+      console.error('Enroll error:', err);
+      setError(err instanceof Error ? err.message : 'Enrollment failed');
     } finally {
       setPaymentLoading(false);
     }
   };
+
 
   if (!user) {
     return (
@@ -381,32 +241,26 @@ const CheckoutPage: React.FC = () => {
                 </div>
 
                 <button
-                  onClick={handlePayment}
-                  disabled={paymentLoading || !razorpayLoaded}
+                  onClick={handleEnroll}
+                  disabled={paymentLoading}
                   className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white py-4 px-6 rounded-lg font-semibold transition-colors flex items-center justify-center space-x-2"
                 >
                   {paymentLoading ? (
                     <>
                       <Loader2 className="w-5 h-5 animate-spin" />
-                      <span>Processing...</span>
+                      <span>Enrolling...</span>
                     </>
                   ) : (
                     <>
                       <CreditCard className="w-5 h-5" />
-                      <span>Pay Now ₹{course.price}</span>
+                      <span>Start Learning</span>
                     </>
                   )}
                 </button>
 
-                {!razorpayLoaded && (
-                  <p className="text-sm text-gray-500 text-center">
-                    Loading payment system...
-                  </p>
-                )}
-
                 <div className="text-center text-xs text-gray-500">
                   <Lock className="w-4 h-4 inline mr-1" />
-                  Secured by Razorpay
+                  Direct enrollment
                 </div>
               </div>
             </div>

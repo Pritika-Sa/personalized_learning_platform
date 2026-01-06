@@ -11,7 +11,7 @@ const router = express.Router();
 router.get('/dashboard', auth, async (req, res) => {
   try {
     const userId = req.user._id;
-    
+
     // Get user details
     const user = await User.findById(userId).select('-password');
     if (!user) {
@@ -53,7 +53,8 @@ router.get('/dashboard', auth, async (req, res) => {
     res.json({
       user: {
         id: user._id,
-        name: user.name,
+        firstName: user.firstName,
+        lastName: user.lastName,
         email: user.email,
         role: user.role,
         createdAt: user.createdAt
