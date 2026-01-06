@@ -1,4 +1,4 @@
-# Learning Platform Backend
+# Learning Platform
 
 Backend server for a learning platform using Node.js, Express, and MongoDB.
 
